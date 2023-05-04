@@ -1,5 +1,7 @@
 # R Stats101 Bioinformatics
-Introduction to R programming and mathematical statistics for bioinformatics and biomedical sciences.
+**Introduction to R programming and mathematical statistics for bioinformatics and biomedical sciences.**
+
+![](RStats101_Bioinformatics.png)
 
 The repository of the R Stats101 Bioinformatics course. 
 
