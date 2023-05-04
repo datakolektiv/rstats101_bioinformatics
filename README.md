@@ -7,6 +7,8 @@ The repository of the R Stats101 Bioinformatics course.
 
 Organized by [DataKolektiv](https://www.datakolektiv.com) for [INSTITUTE OF MOLECULAR GENETICS AND GENETIC ENGINEERING, University of Belgrade](https://imgge.bg.ac.rs/en/), May - June 2023.
 
+The official course R book is [Hadley Wickham & Garrett Grolemund's R for Data Science](https://r4ds.had.co.nz/).
+
 ## Programme
 
 ### Session 1, May 8, 2023, Monday
