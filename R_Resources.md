@@ -1,6 +1,6 @@
 # R Resources
 
-![]()
+![](R_logo.png)
 
 There are many resources available for learning and using the R programming language. Here are some of the most important ones:
 
