@@ -2,7 +2,7 @@
 
 There are many resources available for learning and using the R programming language. Here are some of the most important ones:
 
-**CRAN - The Comprehensive R Archive Network** is the primary repository for R packages and documentation. It contains thousands of packages for data analysis, machine learning, visualization, and more. URL: [https://cran.r-project.org])(https://cran.r-project.org/)
+**CRAN - The Comprehensive R Archive Network** is the primary repository for R packages and documentation. It contains thousands of packages for data analysis, machine learning, visualization, and more. URL: [https://cran.r-project.org](https://cran.r-project.org/)
 
 **Bioconductor** - Bioconductor is a widely-used open-source software project for the analysis and comprehension of high-throughput genomic data. It is built on the R programming language and provides a suite of packages and tools for genomic data analysis, including data structures, algorithms, and visualizations. Bioconductor is focused on the development and distribution of tools for biological research, particularly in the areas of genomics, transcriptomics, proteomics, and metabolomics. URL: [https://www.bioconductor.org](https://www.bioconductor.org/)
 
@@ -16,6 +16,6 @@ There are many resources available for learning and using the R programming lang
 
 **GitHub** - GitHub is a code hosting platform that is widely used by the R community for sharing code and collaborating on projects. It is a great resource for finding R packages and scripts, as well as contributing to open-source projects. URL: [https://github.com](https://github.com/)
 
-**DataKolektiv's DATA SCIENCE SESSION Foundational R for Data Science course** - The material is foundational but still quite advanced for beginners. This is by far our most popular course, covering an introduction to mathematical statistics for Data Science as well as a full course in Supervised Machine Learning for regression and classification problems URL: [https://datakolektiv.com/app_direct/introdsnontech](https://datakolektiv.com/app_direct/introdsnontech/)
+**DataKolektiv's DATA SCIENCE SESSIONS Foundational R for Data Science course** - The material is foundational but still quite advanced for beginners. This is by far our most popular course, covering an introduction to mathematical statistics for Data Science as well as a full course in Supervised Machine Learning for regression and classification problems URL: [https://datakolektiv.com/app_direct/introdsnontech](https://datakolektiv.com/app_direct/introdsnontech/)
 
 These are just a few of the many resources available for learning and using R. Other resources include online forums, user groups, blogs, and newsletters.
