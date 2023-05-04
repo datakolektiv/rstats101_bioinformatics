@@ -4,7 +4,7 @@
 
 You have your machine in front of you, and that machine is running any of the following operative systems:
 
-- Windows 10 (earlier versions are fine too)
+- Windows 10 (later versions are fine too)
 - Linux Ubuntu/Debian
 - macOS
 
@@ -55,3 +55,15 @@ Seriously, all code should be kept under RStudio projects.
 
 This [video](https://www.youtube.com/watch?v=WyrJmJWgPiU) explains how to start and maintain a project under RStudio Dekstop. 
 
+**R Packages**
+
+Once done with the installations, please open your RStudio Desktop, and in the console type:
+
+`install.packages("tidyverse")`
+
+`install.packages("ggrepel")`
+
+`install.packages("glmnet")`
+
+
+That will bring some important R packages to your R installation.
