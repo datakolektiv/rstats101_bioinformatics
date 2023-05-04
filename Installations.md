@@ -61,6 +61,8 @@ Once done with the installations, please open your RStudio Desktop, and in the c
 
 `install.packages("tidyverse")`
 
+`install.packages("scales")`
+
 `install.packages("ggrepel")`
 
 `install.packages("glmnet")`
