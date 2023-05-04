@@ -1,5 +1,7 @@
 # R Resources
 
+![]()
+
 There are many resources available for learning and using the R programming language. Here are some of the most important ones:
 
 **CRAN - The Comprehensive R Archive Network** is the primary repository for R packages and documentation. It contains thousands of packages for data analysis, machine learning, visualization, and more. URL: [https://cran.r-project.org](https://cran.r-project.org/)
