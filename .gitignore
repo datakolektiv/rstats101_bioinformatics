@@ -51,3 +51,6 @@ rsconnect/
 # renv
 renv/
 
+# macos
+.DS_Store
+
