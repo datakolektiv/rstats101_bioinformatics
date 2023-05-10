@@ -1,201 +1,23 @@
 ### ----------------------------------------------------------------------------
 ### --- DataKolektiv R STATS 101 for Bioinformatics
-### --- Session 01. Introduction to R
+### --- Session 02. Introduction to R
 ### --- author: Goran S. Milovanović, Phd
 ### --- DataKolektiv, Chief Scientist/Owner
 ### --- DataKolektiv, 2023.
-### --- script: rstats101_session01.R
-### --- description: first impressions of R
+### --- script: rstats102_session01.R
+### --- description: R programming 101
 ### --- license: GPL-3.0 license
 ### --- https://www.gnu.org/licenses/gpl-3.0.html
 ### ----------------------------------------------------------------------------
 
-### ------------------------------------------
-### --- Hello, R
-### ------------------------------------------
+### ---------------------------------------------------------
+### --- Setup
+### ---------------------------------------------------------
 
-# - some data that we already have
-data(iris)
-
-head(iris, 10)
-
-tail(iris, 10)
-class(iris)
-
+### --- packages
 library(tidyverse)
 
-# - vectors
-my_vector <- c(1, 7, 9, 10, 14, 22, 3.14, 2.71, 99)
-
-head(my_vector, 7)
-
-
-my_vector[3:6]
-
-head(my_vector, 5)
-tail(my_vector, 5)
-
-class(my_vector)
-
-slavka <- c("dragutin", "masha", "Beograd") 
-length(slavka)
-
-s <- c("1", "7", 8)
-
-my_vec <- runif(1000, 0, 10)
-my_vec[996:1000] <- c(1, 2, 3, 4, 5)
-tail(my_vec, 10)
-
-is_integer <- function(x) {
-  if (x == floor(x)) {
-    return(TRUE)
-  } else {
-    return(FALSE)
-    }
-}
-
-indicator <- sapply(my_vec, is_integer)
-
-lapply(my_vec, function(x) {
-  x^2 # - comm
-  })
-
-
-indicator
-
-
-
-length(my_vec)
-
-indicator <- vector(mode="logical", length = length(my_vec))
-
-for (i in 1:length(my_vec)) {
-  indicator[i] <- is_integer(my_vec[i])
-}
-
-
-
-floor(my_vec[996])
-
-
-# - lists
-my_list <- list(element_1 = c(1,3,4),
-                element_2 = "IMGGE", 
-                element_3 = TRUE)
-str(my_list)
-
-# - list to describe a person
-person <- list(name = "Mark",
-               family_name = "Smith",
-               phone = "+381661722838383", 
-               email = "mark.smith@rcourses.org", 
-               age = 40,
-               gender = "M", 
-               employed = TRUE)
-person
-
-# - even a data.frame can be a member of a list in R
-person <- list(name = "Mark",
-               family_name = "Smith",
-               phone = "+381661722838383", 
-               email = "mark.smith@rcourses.org", 
-               age = 40,
-               gender = "M", 
-               employed = TRUE, 
-               favorite_dataset = "iris", 
-               favorite_dataset_source = iris)
-
-# - nested lists
-ll <- list(e1 = 10, 
-           e2 = 20, 
-           e3 = list(
-             e1 = 20,
-             e2 = 40,
-             e3 = 15
-           ), 
-           e4 = 40,
-           e5 = list(
-             e1 = 12
-           ))
-ll
-
-# - more descriptions of persons
-persons <- list(name = c("Mark", "Jane"),
-                family_name = c("Smith", "Doe"),
-                phone = c("+381661722838383", "+381661722838384"),
-                email = c("mark.smith@rcourses.org", "jane.doe@rcourses.org"), 
-                age = c(40, 42),
-                gender = c("M", "F"),
-                employed = c(TRUE, FALSE)
-)
-
-# - access to elements in a list
-persons[[2]][2]
-
-l <- list(1, "a", TRUE)
-
-
-# - named lists
-persons$family_name[2]
-
-# - an alternative description of a person via lists
-persons <- list(
-  p1 = list(name = "Mark",
-            family_name = "Smith",
-            phone = "+381661722838383",
-            email = "mark.smith@rcourses.org",
-            age = 40,
-            gender = "M",
-            employed = TRUE
-  ),
-  p2 = list(name = "Jane",
-            family_name = "Doe",
-            phone = "+381661722838385",
-            email = "jane.doe@rcourses.org",
-            age = 42,
-            gender = "F",
-            employed = FALSE
-  )
-)
-
-persons[[1]]
-
-# - data.frame
-str(iris)
-
-iris$Species[1:10]
-
-iris[17:23, c("Sepal.Length", "Species")]
-
-
-iris[14:18, 2:3]
-
-iris[iris$Sepal.Length > median(iris$Sepal.Length), ]
-
-
-iris$Sepal.Length > median(iris$Sepal.Length)
-
-
-unique(iris$Species)
-
-a <- c(5,5,5,4,4,2)
-unique(a)
-
-# - function composition
-length(
-  unique(
-    iris$Sepal.Length
-  )
-)
-
-length(iris$Sepal.Length)
-
-dim(iris)
-dim(iris)[2]
-
-### ------------------------------------------
-### --- Overview of some very important things
-### ------------------------------------------
+### --- directory tree
 
 # - where am i?
 getwd()
@@ -221,22 +43,18 @@ getwd()
 # note: navigate back to the project directory and setwd() there
 setwd(store_course_dir)
 
+### ---------------------------------------------------------
+### --- Atomic Vectors, Vectorization
+### ---------------------------------------------------------
 
-# - calculator
-5 + 5
-a <- 7
-a + 3
+# - list all objects in the environment
 ls()
-a = 5
-a + 3
-
-# - note: use the assignment operator in R: '<-'
-a <- 5
-b <- 2
-a^b
+a <- 10
 ls()
+rm(a)
+ls
 
-# - clear workspace:
+# - clear environment
 rm(list = ls())
 ls()
 
@@ -289,6 +107,14 @@ class(v3)
 # - character class
 class(v2)
 
+# - character to numeric
+v3 <- c("1", 2, "3.1415")
+v3
+class(v3)
+v3num <- as.numeric(v3)
+class(v3num)
+v3num
+
 # - vectorization
 v1
 v1 + 1
@@ -305,11 +131,6 @@ v1
 v1 + c(1, 2, 3, 4, 5, 6)
 length(v1)
 length(c(1, 2, 3, 4, 5, 6))
-# note: mind the warning message!
-# 
-v3
-# - 
-v3 + 1
 
 # - everything in R are functions
 5 + 2
@@ -325,6 +146,7 @@ Reduce("+", c(5, 2, 1), accumulate = TRUE)
 paste0("Beograd ", paste0("je ", "prestonica."))
 
 # - everything in R is (better: can be) functional programming
+
 # - numbers
 a <- 7
 class(a)
@@ -434,6 +256,7 @@ substr(a, 1, 2)
 substr(a, 4, 6)
 a <- "This is a sentence in English"
 
+# - split a string
 strsplit(a, split = " ")
 a_split <- strsplit(a, split=" ")
 class(a_split)
@@ -512,15 +335,6 @@ cmp_couples <- function(l1, l2) {
 
 cmp_couples(a, b)
 
-### ------------------------------------------
-### --- Lists and Data Frames
-### ------------------------------------------
-
-# - where am i?
-getwd()
-# - note: always use RStudio projects!
-list.files(getwd())
-list.files()
 
 # - lists
 a <- list("Belgrade", 2022, TRUE)
@@ -1077,7 +891,4 @@ ggplot(data_subset,
   theme(axis.text.x = element_text(angle = 90)) + 
   theme(panel.border = element_blank()) + 
   theme(plot.title = element_text(hjust = .5))
-
-
-
 
