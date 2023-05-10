@@ -251,10 +251,14 @@ paste0(a, b)
 paste(a, b, sep = "")
 paste(a, b, sep = " ")
 
-# - function to work with character
+# - some functions to work with character
 substr(a, 1, 2)
 substr(a, 4, 6)
 a <- "This is a sentence in English"
+
+### ---------------------------------------------------------
+### --- Lists, Functions
+### ---------------------------------------------------------
 
 # - split a string
 strsplit(a, split = " ")
@@ -347,6 +351,10 @@ class(a[[1]])
 class(a[[2]])
 class(a[[3]])
 
+### ---------------------------------------------------------
+### --- Functional Programming: the apply family
+### ---------------------------------------------------------
+
 # - apply a function over a list
 lapply(a, class)
 
@@ -393,6 +401,10 @@ names(a$first)
 names(a$first) <- c("prva", "druga")
 names(a$first)
 a
+
+### ---------------------------------------------------------
+### --- data.frame
+### ---------------------------------------------------------
 
 # - data.frame
 num <- c(1, 2, 3, 4)
@@ -497,7 +509,6 @@ mtcars[mtcars$hp > 100, c(2, 4)]
 colnames(mtcars)
 mtcars[, grepl("gear", colnames(mtcars))]
 sd(mtcars[, grepl("gear", colnames(mtcars))])
-
 
 nasa_lista <- list(grad = list(ime = "Beograd",
                                populacija = "1.4M"),
@@ -611,6 +622,10 @@ repeat {
   if (a > 90) break
 }
 
+### ---------------------------------------------------------
+### --- Decisions
+### ---------------------------------------------------------
+
 # - decisions
 num_rows <- dim(data_set)[1]
 if (num_rows >= 10000) {
@@ -692,7 +707,10 @@ ifelse(trues,
 rand_a <- runif(100, 0, 1)
 ifelse(rand_a > .5, TRUE, FALSE)
 
-### --- functional programming
+### ---------------------------------------------------------
+### --- Functional Programming
+### ---------------------------------------------------------
+
 # - functionals in R
 
 # - lapply()
@@ -770,7 +788,6 @@ data <- lapply(lF, function(x) {
 data[[1]]
 data[[2]]
 dataset <- Reduce(rbind, data)
-
 
 ### ------------------------------------------
 ### --- Tidyverse!
