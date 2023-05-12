@@ -25,7 +25,8 @@ getwd()
 # - dir_tree
 data_dir <- paste0(getwd(), "/_data/")
 analytics_dir <- paste0(
-  getwd(), "/_analytics/"
+  getwd(), 
+  "/_analytics/"
 )
 reporting_dir <- paste0(getwd(), "/_reporting/")
 img_dir <- paste0(getwd(), "/_img/")
@@ -33,6 +34,8 @@ img_dir <- paste0(getwd(), "/_img/")
 # - note: always use RStudio projects!
 list.files(getwd())
 list.files()
+
+list.files(data_dir)
 
 # - pick a directory in your local filesystem, and then:
 store_course_dir <- getwd()
@@ -119,12 +122,29 @@ v3num
 v1
 v1 + 1
 
+x1 <- c(1,2)
+x2 <- c(2,3,4,5)
+x1 + x2
+
 nv <- 1:10
 nv1 <- 11:20
 nv + nv1
+
 nv^2
+
 sqrt(4)
+
 sqrt(nv)
+
+my_mat1 <- matrix(c(1,10,100,.1), 
+                 ncol=2)
+
+my_mat2 <- matrix(c(2,20,200,.2),
+                  ncol=2)
+
+my_mat1 * my_mat2
+
+my_mat1 %*% my_mat2
 
 # - recycling
 v1
@@ -137,12 +157,15 @@ length(c(1, 2, 3, 4, 5, 6))
 "+"(5, 2)
 "+"(5, 2, 1)
 
+
 # - look:
 Reduce("+", c(5, 2, 1))
+
 Reduce("+", c(5, 2, 1), accumulate = TRUE)
 
 # - function composition:
 "+"("+"(3, 2), 1)
+
 paste0("Beograd ", paste0("je ", "prestonica."))
 
 # - everything in R is (better: can be) functional programming
@@ -209,7 +232,9 @@ mean(v1, na.rm = TRUE)
 # - finding things in vectors
 v1 > 5
 which(v1 > 5)
+
 v1[v1 > 5]
+
 w <- which(v1 > 5)
 v1[w] <- NA
 v1
@@ -251,21 +276,32 @@ paste0(a, b)
 paste(a, b, sep = "")
 paste(a, b, sep = " ")
 
+paste(a, b, sep = "XYZ")
+
 # - some functions to work with character
 substr(a, 1, 2)
 substr(a, 4, 6)
-a <- "This is a sentence in English"
 
 ### ---------------------------------------------------------
 ### --- Lists, Functions
 ### ---------------------------------------------------------
 
+a <- "This is a sentence in English"
+b <- "A quick brown fox jumps over the lazy dog"
+
 # - split a string
-strsplit(a, split = " ")
+
+strsplit(a, split=" ")[[1]]
+
+strsplit(c(a, b), split = " ")
+
+
 a_split <- strsplit(a, split=" ")
 class(a_split)
 length(a_split)
 length(a_split[[1]])
+
+a_split
 a_split[[1]][6]
 
 a <- "This is a sentence in English"
@@ -309,13 +345,29 @@ a <- gsub("P", "Z", a, fixed = TRUE)
 grepl("Z", a)
 
 # - elementary functions in R
-sum2 <- function(x, y) {
+sum <- function(x, y) {
   s <- x + y
-  return(s)
+  d <- x^2 + y^2
+  output <- list(s = s,
+                 d = d)
+  return(output)
 }
+
+base::sum(c(10,10))
+
 
 sum2(10, 4)
 sum2(10, 1)
+
+
+linear_model <- lm(Petal.Length ~ Sepal.Length, 
+                   data = iris)
+
+linear_model$coefficients
+
+results <- summary(linear_model)
+
+results$fstatistic
 
 # - more functions 
 a <- list(name = c("George", "Maria"),
@@ -358,6 +410,8 @@ class(a[[3]])
 # - apply a function over a list
 lapply(a, class)
 
+sapply(a, class)
+
 # - it would work for a vector too
 v1 <- seq(1, 10, by = 1)
 v1 <- 1:10
@@ -372,6 +426,12 @@ class(lapply(v1, plus_one))
 # - to unlist
 unlist(lapply(v1, plus_one))
 class(unlist(lapply(v1, plus_one)))
+
+a <- c(1,2,3)
+b <- c("A", "X")
+c <- c(7, 3, NA)
+ll <- list(a = a, b = b, c = c)
+unlist(ll)
 
 # - or use sapply
 sapply(v1, plus_one)
@@ -411,54 +471,79 @@ num <- c(1, 2, 3, 4)
 city <- c("Paris", "Belgrade", "NYC", "Tokyo")
 timezone <- c("CET", "CET", "EDT", "JST")
 population <- c(2.23, 1.4, 8.83, 14)
+
 cities <- data.frame(no = num,
                      city = city,
                      tz = timezone,
                      pop = population)
+
 cities
+
 str(cities)
+
 # - works for lists
 str(a)
 str(cities)
+
 # - access columns
 cities$city
+
 cities$tz
+
 cities$pop
+
 class(cities$city)
+
 class(cities$pop)
+
 # - acess rows
 cities[1, ]
+
 cities[1:2, ]
+
 cities[1:2, 1]
+
 cities[1:2, 1:2]
+
 
 # - subsetting data.frame
 
-which(cities$pop > 3)
+cities$city[which(cities$pop > 3)]
+
+
 cities[which(cities$pop > 3), ]
 
 cities$score <- c(1, 3, 4, 7)
+
+
 dim(cities)[2]
+
 cities$score <- NULL
 
 head(cities, 2)
 tail(cities, 2)
+
 colnames(cities)
 colnames(cities)[1]
+
 colnames(cities)[1] <- "redni_broj"
+
 colnames(cities)
 
 cities[1:2, c('city', 'tz')]
+
 cities[1:2, c('city', 'pop')]
 
 cities[ , 'pop']
 
 mean(cities[, 'pop'])
+
 cities$pop
 
 mean(cities$pop)
 
 paste0("tz_", cities$tz)
+
 cities$tz <- paste0("tz_", cities$tz)
 cities
 cities[1:3, c(2, 4)]
@@ -470,6 +555,7 @@ cities[cities$pop > 1.5, c(2, 4)]
 
 # - find a column by a name
 colnames(cities)
+
 cities[ , grepl("^pop", colnames(cities))]
 
 # built-in data.frame to practice: mtcars
@@ -478,11 +564,13 @@ print(mtcars)
 dim(mtcars)
 
 head(mtcars, 2)
+
 tail(mtcars, 5)
 
 colnames(mtcars)
 
 colnames(mtcars)[1]
+
 rownames(mtcars)
 
 mtcars[1:2, c('mpg', 'wt')]
@@ -490,6 +578,7 @@ mtcars[1:2, c('mpg', 'wt')]
 mtcars[1:10, c('hp', 'gear')]
 
 class(mtcars[, 'hp'])
+
 class(mtcars[, c('hp', 'gear')])
 
 mean(mtcars[, 'gear'])
@@ -908,4 +997,35 @@ ggplot(data_subset,
   theme(axis.text.x = element_text(angle = 90)) + 
   theme(panel.border = element_blank()) + 
   theme(plot.title = element_text(hjust = .5))
+
+
+### ------------------------------------------
+### --- Sampling Distribution of Mean
+### ------------------------------------------
+
+population <- list(mu = 3.5,
+                   sigma = 1.2)
+
+r1 <- rnorm(1000, mean=population$mu, sd = population$sigma)
+mean(r1)
+
+samples <- lapply(1:1000, 
+                  function(x) {
+                    rnorm(1000, mean=population$mu, sd = population$sigma)
+                    })
+
+
+sample_means <- sapply(samples, mean)
+
+mean(sample_means)
+
+population$sigma
+
+sample_sds <- sapply(samples, sd)
+
+mean(sample_sds)
+
+
+
+
 
