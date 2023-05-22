@@ -1,0 +1,320 @@
+---
+title: 'RStats 101: A simple t-test'
+output:
+  html_document:
+    df_print: paged
+---
+
+**Authors:**
+
+**Goran S. Milovanović, Phd, Psychology**
+
+**Course.** Introduction to R programming and mathematical statistics for bioinformatics and biomedical sciences, 2023, INSTITUTE OF MOLECULAR GENETICS AND GENETIC ENGINEERING University of Belgrade.
+
+***
+
+# Lab 04: Statistical Hypothesis Testing: The Student's t-distribution and the related test
+ 
+**Feedback** should be send to `goran.milovanovic@datakolektiv.com`.
+
+***
+
+### What do we want to do today?
+
+We will introduce the conceptual and mathematical framework of Statistical Hypothesis Testing by studying a very important test: the **t-test**. Of all its variations, we will study only one, the simplest, in which we ask the following question: does the sample mean from a Normal distribution differ from some hypothesized population mean, or not?
+
+### 0. Setup
+
+```{r echo = T, message = F, warning = F}
+library(tidyverse)
+library(data.table)
+set.seed(9988)
+```
+
+### 1. The Student's t-distribution
+
+We begin by defining one Normal distribution with `mean == 10` and `variance == 5`. We draw 100,000 samples of `size == 1000` from it, obtain the mean for each sample, and visualize the distribution of the sample mean.
+
+```{r echo = T}
+# - number of samples
+nsamples = 10000
+# - sample size
+n = 1000
+# - normal parameters
+# - mean:
+mu = 10
+# - variance:
+sigma2 = 5
+# - standard deviation:
+std_dev = sqrt(sigma2)
+# - n random draws from Normal(mu, std_dev), sample size = 1000, 
+# - take the mean *and the variance* of each sample:
+normalSamples <- lapply(1:nsamples, function(x) {
+  sp <- rnorm(n, mu, std_dev)
+  m <- mean(sp)
+  v <- var(sp)
+  return(
+    data.frame(mean = m,
+               variance = v)
+  )
+})
+# - remember data.table::rbindlist from Session09?
+normalSamples <- data.table::rbindlist(normalSamples)
+# - The distribution of sample means:
+ggplot(normalSamples, 
+       aes(x = mean)) + 
+  geom_histogram(binwidth = .001, 
+                 fill = 'darkred', 
+                 color = 'darkred') +
+  ggtitle("The sampling distribution of the mean") + 
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+Consider the following variable:
+
+$$t = \frac{\overline{X} - \mu}{{S}/{\sqrt{n}}}$$
+
+where $\overline{X}$ is the sample mean, $\mu$ the population mean, $S$ the *standard deviation*, and $n$ the sample size. This quantity is known to follow a **t-distribution** with $n-1$ degrees of freedom:
+
+```{r echo = T}
+tdist <- (normalSamples$mean - mu)/(sqrt(normalSamples$variance)/sqrt(n))
+tdist <- data.frame(t = tdist)
+# - The Student's t-distribution:
+ggplot(tdist, 
+       aes(x = t)) + 
+  geom_histogram(binwidth = .001, 
+                 fill = 'darkorange', 
+                 color = 'darkorange') +
+  ggtitle("The Student's t-distribution") + 
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+
+The probability density function of the t-distribution presents a really nice exercise in $LaTeX$:
+
+$$f(t)=\frac{\Gamma(\frac{\nu+1}{2})}{\sqrt(\nu\pi)\Gamma(\frac{\nu}{2})}(1 + \frac{t^2}{\nu})^{-\frac{\nu+1}{2}}$$
+where $\nu$ represents the degrees of freedom, and $\Gamma$ is the [Gamma function](https://en.wikipedia.org/wiki/Gamma_function) (just forget about it).
+
+
+### 2. The t-test
+
+Assume that we want to test if a mean of a sample drawn from some (presumably) Normal distribution is different than zero. We do not care if it is larger or not than zero, we just want to test if it is zero or not (or, in the lingo of mathematical statistics: if it *statistically different* from zero). I will use a Normal distribution with `mean == 10` and `variance == 5` to draw a sample from and then ask: is the sample mean significantly different from zero?
+
+```{r echo = T}
+# - population (test) mean
+real_mean <- 0
+# - sample size
+n = 10000
+# - normal parameters
+# - mean:
+mu = 10
+# - variance:
+sigma2 = 5
+# - standard deviation:
+std_dev = sqrt(sigma2)
+# - one random draw from Normal(mu, std_dev), sample size = n, 
+# - and take the mean
+normalSample <- rnorm(n, mu, std_dev)
+sample_mean <- mean(normalSample)
+print(paste0("The sample mean is: ", sample_mean))
+sample_std_dev <- sd(normalSample)
+print(paste0("The standard deviation is: ", sample_std_dev))
+# - test statistic:
+tStatistic <- (sample_mean - real_mean)/(sample_std_dev/sqrt(n))
+print(paste0("The t-statistic is: ", tStatistic))
+# - degrees of freedom:
+df <- n - 1
+print(paste0("The number of degrees of freedom is: ", df))
+```
+Now, let's take a look again at:
+
+$$t = \frac{\overline{X} - \mu}{{S}/{\sqrt{n}}}$$
+
+We know that in our current experiment $\overline{X}$ is around `10.00`, $\mu$ - the population mean - is **zero** (because we want to test against zero), $S$ is around `2.24`, and $n$ is `10,000`, and we also know that this quantity follows a **t-distribution** with $n-1$ degrees of freedom. What is the probability of obtaining some particular $t$ value from a t-distribution with 9,999 degrees of freedom?
+
+#### 2.1 The probability of obtaining some t-test statistic from a t-distribution
+
+This might confuse you:
+
+```{r echo = T}
+pt(abs(tStatistic), df, lower.tail = FALSE) * 2
+```
+
+But it is really easy: `pt()` is the cumulative probability function for the t-distribution in R (remember the `dpqr` notations: `dt()` is its probability density function, `pt()` the cumulative distribution function, `qt()` its quantile function, and `rt()` its random number generator, similar to `dnorm()`, `pnorm()`, `qnorm()`, and `rnorm()`). But why did we multiply the probability of observing the value of the `tStatistic` from a t-distribution with `df` degrees of freedom by two? **Because we do not care if the sample mean that we are testing against zero is lower than zero or higher than zero** - so we have to consider the possibility of obtaining a positive as well a as a negative value of the t-test statistic!
+
+Of course, R has a handy `t.test()` function to perform t-tests...
+
+```{r echo = T}
+t.test(normalSample, mu = real_mean, alternative = "two.sided")
+```
+
+**Hint**. Think: `alternative = "two.sided"` in the `t.test()` call above. Please: study the [documentation](https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/t.test), read something about the t-test, and figure out for yourself - it is easy - why can we have (and what sense does it make to have) both `alternative = "two.sided"`, `alternative = "less"` and `alternative = "greater"`!
+
+To test any sample mean against any hypothesized population value - just change the `real_mean` value in the code above. It does not have to zero, of course:
+
+```{r echo = T}
+t.test(normalSample, mu = 9.98, alternative = "two.sided")
+```
+
+Or, by hand:
+
+```{r echo = T}
+# - population (test) mean
+real_mean <- 9.98
+# - sample size
+n = 10000
+# - normal parameters
+# - mean:
+mu = 10
+# - variance:
+sigma2 = 5
+# - standard deviation:
+std_dev = sqrt(sigma2)
+# - one random draw from Normal(mu, std_dev), sample size = n, 
+# - and take the mean
+normalSample <- rnorm(n, mu, std_dev)
+# - test statistic:
+tStatistic <- (sample_mean - real_mean)/(sample_std_dev/sqrt(n))
+print(paste0("The t-statistic is: ", tStatistic))
+# - degrees of freedom:
+df <- n - 1
+print(paste0("The number of degrees of freedom is: ", df))
+# - p-value
+pvalue <- pt(abs(tStatistic), df, lower.tail = FALSE) * 2
+print(paste0("The p-value is: ", pvalue))
+```
+
+Remember: `p-value < .05` is the conventional value - well, one of the two conventional values, the other being `.01` - beyond which we call the result of statistical hypothesis testing **significant**. Let's discuss the interpretation of this probability in exact terms.
+
+#### 2.2 Statistical Hypothesis Testing: the null and the alternative hypothesis
+
+First, let's take a look at the t-test statistic once again:
+
+$$t = \frac{\overline{X} - \mu}{{S}/{\sqrt{n}}}$$
+
+What we can say about it that it really represents the difference between the sample mean $\overline{X}$ and the hypothesized population mean $\mu$, scaled by ${S}/{\sqrt{n}}$. The scaling is present only to make the difference follow the t-distribution. Now, let's take a look at the t-distribution again:
+
+```{r echo = T}
+# - The Student's t-distribution:
+ggplot(tdist, 
+       aes(x = t)) + 
+  geom_histogram(binwidth = .001, 
+                 fill = 'darkorange', 
+                 color = 'darkorange') +
+  ggtitle("The Student's t-distribution") + 
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+
+and note that its mean is **zero** (yes, you are looking at the result of a numerical simulation, but trust me: [it is zero](https://en.wikipedia.org/wiki/Student%27s_t-distribution)). So the probability density around zero is very high. Let's assume now that we expect to see no difference between the sample mean and the population mean: we expect to observe a t-test statistic of zero or close to zero. We call this assumption the **null hypothesis** in statistical hypothesis testing, and note how the t-distribution, centered around zero, nicely represents the belief that there is no difference between the sample mean and the population mean!
+
+Now, the rejection of the null hypothesis is called an **alternative hypothesis**, which is very simple in the t-test: it states that sample mean is really different from the population mean. Ok, how do we know when to reject the null hypothesis and when not? Simply put, by doing:
+
+```{r echo = T, eval= F}
+pt(abs(tStatistic), df, lower.tail = FALSE) * 2
+```
+
+which will tell us *what is the probability that a given value of the t-test statistic is obtained from a distribution that represents our null hypothesis*. So, if this probability - the `p-value` in the output of `t.test()` - is **low**, we understand that it is unlikely that we have observed the value of the t-test that we have computed from our sample if the sample mean was obtained from a population with a hypothesized (test) mean. And then, **by convention**, we say: if that probability is lower than `.05`, the finding is called *statistically significant*.
+
+The `p-value` is a probability of committing to a **Type I Error (a.k.a. "a false positive")** in statistics: *to reject a null hypothesis when a null hypothesis is indeed true*. If you do this that would be the same as to claim that some result is significant while in fact it occurred by chance.
+
+#### 2.3 Building an intuition on the value of a t-test, the respective p-value, and the sample size
+
+Remember that we have used the population mean of `real_mean == 0` and then drawn a sample from a Normal with a mean of `mu == 10` and variance of `sigma2 = 5` to exemplify the t-test? Let's see what happens if we vary the sample mean as `c(10, 5, 1, .5, .1, .01, .001, .0001)`:
+
+```{r echo = T}
+options(scipen = 999)
+# - population (test) mean
+real_mean <- 0
+# - sample size
+n = 10000
+# - normal parameters
+# - mean:
+mu = c(10, 5, 1, .5, .1, .01, .001, .0001)
+# - variance:
+sigma2 = 5
+# - standard deviation:
+std_dev = sqrt(sigma2)
+# - random draws from Normal(mu, std_dev), sample size = n, 
+# - and then take the mean
+t_tests <- lapply(mu, function(x) {
+  test_sample <- rnorm(n, x, std_dev)
+  test_result <- t.test(test_sample, mu = real_mean, alternative = "two.sided")
+  return(
+    data.frame(sample_mean = x,
+               population_mean = real_mean,
+               t = round(test_result$statistic, 3),
+               p = round(test_result$p.value, 3)
+               )
+  )
+})
+t_tests <- rbindlist(t_tests)
+print(t_tests)
+```
+
+So, when the sample mean was taken to be `.01` and lower, the t-test was not able to differentiate it from zero anymore - given the sample size of `n = 10000` that we used. Please observe how the value of the t-test statistic decreased with a decrease in the difference between the sample and the population mean, and how at the same time the probability of obtaining a particular value of the t-test from a t-distribution that represents the null hypothesis increased. What happens if we set the sample size, `n`, to one million?
+
+```{r echo = T}
+options(scipen = 999)
+# - population (test) mean
+real_mean <- 0
+# - sample size
+n = 1e06
+# - normal parameters
+# - mean:
+mu = c(10, 5, 1, .5, .1, .01, .001, .0001)
+# - variance:
+sigma2 = 5
+# - standard deviation:
+std_dev = sqrt(sigma2)
+# - random draws from Normal(mu, std_dev), sample size = n, 
+# - and then take the mean
+t_tests <- lapply(mu, function(x) {
+  test_sample <- rnorm(n, x, std_dev)
+  test_result <- t.test(test_sample, mu = real_mean, alternative = "two.sided")
+  return(
+    data.frame(sample_mean = x,
+               population_mean = real_mean,
+               t = round(test_result$statistic, 3),
+               p = round(test_result$p.value, 3)
+               )
+  )
+})
+t_tests <- rbindlist(t_tests)
+print(t_tests)
+```
+
+Now we had to reach the value of the `sample_mean == 0.001` for the t-test to be unable to tell that it is statistically significantly different from zero. Do not forget about this exercise ever.
+
+
+### Further Readings
+
+- [The Student's t-distribution probability functions in R"](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/TDist.html)
+- [The t.test() documentation"](https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/t.test)
+- [One-Sample T-test in R from STHDA](http://www.sthda.com/english/wiki/one-sample-t-test-in-r)
+
+
+### R Markdown
+
+[R Markdown](https://rmarkdown.rstudio.com/) is what I have used to produce this beautiful Notebook. We will learn more about it near the end of the course, but if you already feel ready to dive deep, here's a book: [R Markdown: The Definitive Guide, Yihui Xie, J. J. Allaire, Garrett Grolemunds.](https://bookdown.org/yihui/rmarkdown/) 
+
+***
+
+Goran S. Milovanović
+
+DataKolektiv, 2023.
+
+contact: goran.milovanovic@datakolektiv.com
+
+![](_img/DK_Logo_100.png)
+
+***
+License: [GPLv3](http://www.gnu.org/licenses/gpl-3.0.txt)
+This Notebook is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+This Notebook is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+You should have received a copy of the GNU General Public License along with this Notebook. If not, see <http://www.gnu.org/licenses/>.
+
+***
