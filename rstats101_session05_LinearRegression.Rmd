@@ -1,0 +1,1346 @@
+---
+title: "RStats 101: Linear Regression Model"
+output: html_notebook
+---
+
+**Authors:**
+
+**Goran S. Milovanović, Phd, Psychology**
+
+**Course.** Introduction to R programming and mathematical statistics for bioinformatics and biomedical sciences, 2023, INSTITUTE OF MOLECULAR GENETICS AND GENETIC ENGINEERING University of Belgrade.
+
+### What do we want to do today?
+
+Correlations, correlations everywhere..! One would think that all that Data Scientists do nowadays is to look for them. Not even half true, however, they are of essential importance for our work. In this session, we introduce the concept of correlation, and expand it - in a gentle way - towards simple linear regression.
+
+## 0. Setup
+
+Setup:
+
+```{r echo = T, message = F, warning = F}
+dataDir <- paste0(getwd(), "/_data/")
+library(tidyverse)
+library(plotly)
+library(data.table)
+library(Hmisc)
+library(ppcor)
+library(corrplot)
+library(car)
+library(datasets)
+library(broom)
+library(lattice)
+```
+
+### 1. Covariance, Variable Standardization, and Correlation
+
+#### 1.1 Linear relationships
+
+We will start by inspecting two variables from the iris data set: `Sepal.Length` and `Petal.Length`:
+
+```{r echo = T}
+# - plot layout: 2 x 2
+par(mfcol = c(2, 2))
+# - boxplot iris$Sepal.Length
+boxplot(iris$Sepal.Length,
+        horizontal = TRUE, 
+        xlab = "Sepal Length")
+# - histogram: iris$Sepal.Length
+hist(iris$Sepal.Length, 
+     main = "",
+     xlab = "Sepal.Length", 
+     prob = T)
+# - overlay iris$Sepal.Length density 
+# - function over the empirical distribution
+lines(density(iris$Sepal.Length),
+      lty = "dashed", 
+      lwd = 2.5, 
+      col = "red")
+# - boxplot iris$Petal.Length
+boxplot(iris$Petal.Length,
+        horizontal = TRUE, 
+        xlab = "Petal Length")
+# - histogram: iris$Petal.Length,
+hist(iris$Petal.Length,
+     main = "",
+     xlab = "Petal Length", 
+     prob = T)
+# - overlay iris$Petal.Length density 
+# - function over the empirical distribution
+lines(density(iris$Petal.Length),
+      lty = "dashed", 
+      lwd = 2.5, 
+      col = "red")
+# reset plot layout
+par(mfcol = c(1, 1))
+```
+
+**Q.** Is there a linear relationship between these two variables? Let’s see:
+
+```{r echo = T}
+# scatter plot w. {base}
+plot(iris$Sepal.Length, iris$Petal.Length,
+     main = "Sepal Length vs Petal Length",
+     xlab = "Sepal Length", ylab = "Petal Length",
+     cex.main = .85,
+     cex.lab = .75)
+```
+
+One could think there is something going on here. But:
+
+```{r echo = T, message = F}
+ggplot(data = iris, aes(x = Sepal.Length,
+                        y = Petal.Length,
+                        color = Species)
+       ) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = F, linewidth = .25) +
+  theme_bw() + 
+  theme(panel.border = element_blank())
+```
+
+There seems to be more than one important line to describe this data set... However, we will simplify for now:
+
+```{r echo = T, message = F}
+ggplot(data = iris, aes(x = Sepal.Length,
+                        y = Petal.Length)) + 
+  geom_point(color = "black", size = 2) + 
+  geom_point(color = "white", size = 1.5) +
+  geom_smooth(method = lm, se = F, linewidth = .25, color = "red") +
+  theme_bw() + 
+  theme(panel.border = element_blank())
+```
+
+#### 1.2 Covariance and Standardization
+
+Leaving aside the important question of whether there is a linear relationship between `Sepal.Length` and `Petal.Length` in `iris` for now, we ask: **if it was a linear relationship**, how good a linear relationship would it make? The answer is provided by computing the Pearson’s coefficient of linear correlation.
+
+First things first. What is this:
+
+```{r echo = T}
+cov(iris$Sepal.Length, iris$Petal.Length)
+```
+
+**Covariance**. Given two random variables (RVs), $X$ and $Y$, their (sample) covariance is given by:
+
+$$cov(X,Y) = E[(X-E[X])(Y-E[Y])] = \frac{(X-\bar{X})(Y-\bar{Y})}{N-1}$$
+where $E[]$ denotes the *expectation* (the *mean*, if you prefer), $\bar{X}$ is the mean of $X$, $\bar{Y}$ is the mean of $Y$, and $N$ is the sample size.
+
+#### 1.3 Correlation
+
+Pearson's coefficient of correlation is nothing else than a covariance between $X$ and $Y$ upon their *standardization*. The standardization of a RV - widely known as a variable *z-score* - is obtained upon subtracting all of its values from the mean, and dividing by the standard deviation; for the **i**-th observation of $X$:
+
+$$z(x_i) = \frac{x_i-\bar{X}}{\sigma}$$
+
+Thus,
+
+``` {r echo = T}
+zSepalLength <- (iris$Sepal.Length - mean(iris$Sepal.Length))/sd(iris$Sepal.Length)
+zPetalLength <- (iris$Petal.Length - mean(iris$Petal.Length))/sd(iris$Petal.Length)
+cov(zSepalLength, zPetalLength)
+```
+
+is the correlation of `Sepal.Length` and `Petal.Length`; let's check with {base} R function `cor()` which computes the correlation:
+
+``` {r echo = T}
+cor(iris$Sepal.Length, iris$Petal.Length, method = "pearson")
+```
+
+Right. There are many formulas that compute `r`, the correlation coefficient; however, understanding that is simply the covariance of standardized RVs is essential. Once you know to standardize the variables and how to compute covariance (and that is easy), you don't need to care about expressions like:
+
+$$r_{XY} = \frac{N\sum{XY}-(\sum{X})(\sum{Y})}{\sqrt{[N\sum{X^2}-(\sum{X})^2][N\sum{Y^2}-(\sum{Y})^2]}}$$
+
+This and similar expressions are good, and especially for two purposes: first, they will compute the desired value of the correlation coefficient in the end, that's for sure, and second, writing them up in `RMarkdown` really helps mastering $\LaTeX$. Besides these roles they play, there is really nothing essentially important in relation to them.
+
+Somewhat easier to remember:
+
+$$r_{XY} = \frac{cov(X,Y)}{\sigma(X)\sigma(Y)}$$
+- the covariance of $X$ and $Y$, divided by the product of their standard deviations.
+
+There's a nice `scale()` function that will quicken-up the computation of *z-scores* in R for you:
+
+``` {r echo = T}
+zSepalLength1 <-  scale(iris$Sepal.Length, center = T, scale = T)
+sum(zSepalLength1 == zSepalLength) == length(zSepalLength)
+```
+
+Do `?scale` - useful things can be done with it.
+
+### 2. Correlation Matrices: Visualization and Treatment of Missing Values
+
+The {base} `cor()` function produces correlation matrices too:
+
+``` {r echo = T}
+cor(iris[ , c(1:4)])
+```
+
+Missing data can be treated by *listwise* or *pairwise* deletion. In *listwise* deletion, any observation (== row) containing at least one `NA`(s) will be removed before the computation. Set the `use` argument in `cor` to `complete.obs` in order to use listwise deletion:
+
+``` {r echo = T}
+dSet <- iris
+# Remove one nominal variable - Species
+dSet$Species <- NULL
+# introduce NA in dSet$Sepal.Length[5]
+dSet$Sepal.Length[5] <- NA
+# Pairwise and Listwise Deletion:
+cor1a <- cor(dSet, 
+             use = "complete.obs") # listwise deletion
+cor1a
+```
+
+*Pairwise deletion* will compute the correlation coefficient using all available data. It will delete only the data corresponding to the missing values from one vector in another, and compute the correlation coefficient from what is left; set `use` to `pairwise.complete.obs` to use this approach:
+
+``` {r echo = T}
+cor1b <- cor(dSet, use = "pairwise.complete.obs") # pairwise deletion
+cor1b
+```
+
+`use = "all.obs"` will produce an error in the presence of any `NA`s:
+
+``` {r echo = T, error = T}
+cor1c <- cor(dSet, 
+             use = "all.obs") # all observations - error
+```
+
+To propagate `NA`s through the matrix wherever they are present in the respective columns, `use = "everything"` (this is the *default*; try `cor(dSet)`):
+
+``` {r echo = T}
+cor1d <- cor(dSet, use = "everything")
+cor1d
+```
+
+There are many available methods to visualize correlation matrices in R. The {base} approach would be to use `plot()` on a `data.frame` like in the following example:
+
+``` {r echo = T}
+# {base} approach
+data("mtcars")
+corMatrix <- cor(mtcars[, 1:8])
+plot(as.data.frame(corMatrix))
+```
+
+But there's also the fantastic `{corrplot}` package to visualize correlation matrices:
+
+``` {r echo = T}
+# {corrplot} approach
+corMatrix <- cor(mtcars)
+```
+
+``` {r echo = T}
+# {corrplot} "circle" method: 
+corrplot(corMatrix, 
+         method = "circle")
+```
+
+``` {r echo = T}
+# {corrplot} "ellipse" method: 
+corrplot(corMatrix, 
+         method = "ellipse")
+```
+
+``` {r echo = T}
+# "mixed"
+corrplot.mixed(corMatrix, 
+               lower = "ellipse", 
+               upper = "circle")
+```
+
+### 3. Introduction to Simple Linear Regression
+
+We now begin considering the mathematical modeling of data in R. The first - and arguably the simplest - statistical model that we will face is the *Simple Linear Regression Model*. In a typical simple linear regression setting, we have one continuous *predictor* -  also known as the *independent variable* - and one continuous *criterion* - a.k.a. the *dependent variable*. Both these are assumed to be unbounded, i.e. taking values across the whole domain of real numbers. *Continuity* here should be understood precisely as having measurements from an *interval* or *ratio scale*.
+
+Linear regression *does not imply any causality*; it is up to the user of the model to impose causal assumptions, i.e. which variable takes the role of the criterion and which variable is assigned as a predictor. It is not even necessary to impose any such assumptions in order to obtain a valid linear regression model, although it is very customary to have some hypothesized direction of causality in order to discuss prediction meaningfully.
+
+#### 3.1 Linear Correlation, Assumption of Linearity, and Causality
+
+``` {r echo = T}
+## Pearson correlation in R {base}
+cor1 <- cor(iris$Sepal.Length, iris$Petal.Length, 
+            method = "pearson")
+cor1
+```
+
+With $R$ = .87 we hope to be able to say that there is a linear relationship, right? Time to learn something important about statistics: you can never rely on a conclusion that was reached by taking the values of the statistics *prima facie* while doing nothing else. Take a look at the scatter plot of these two variables again:
+
+``` {r echo = T, message = F}
+# Let's test the assumption of linearity:
+ggplot(iris, aes(x = Sepal.Length, y = Petal.Length)) +
+  geom_point(size = 2, color = 'black') +
+  geom_point(size = 1.5, color = 'white') +
+  geom_smooth(method = 'lm', size = .25, color = 'red', se = FALSE) +
+  ggtitle('Sepal Length vs Petal Length') +
+  theme_bw() + 
+  theme(panel.border = element_blank())
+```
+
+We have included the best fitting regression line in the scatter plot; does the relationship between the two variable really looks *linear*? Let's remind ourselves of what we have already discovered:
+
+``` {r echo = T, message = F}
+ggplot(data = iris, aes(x = Sepal.Length,
+                        y = Petal.Length,
+                        color = Species)
+       ) + 
+  geom_point(size = 1.5) +
+  geom_smooth(method = 'lm', size = .25, se = F) + 
+  ggtitle('Sepal Length vs Petal Length') + 
+  theme_bw() + 
+  theme(panel.border = element_blank())
+```
+
+Interesting: there seem to be *more than one* linear relationship in this scatter plot, i.e. one per each group from the `iris` data set. What do we do, except for concluding that the *assumption of linearity* has failed? We will introduce a fix in one of our next sessions, showing how a multiple regression model can account for situations like the present one; in the meantime, pretend like nothing has happened...
+
+By the way, is the $R$ coefficient of linear correlation statistically significant?
+
+``` {r echo = T}
+# Is Pearson's product-moment correlation coefficient significant?
+cor2 <- rcorr(iris$Sepal.Length, # {hmisc}
+              iris$Petal.Length, 
+              type="pearson")
+# correlations
+cor2$r
+```
+
+``` {r echo = T}
+cor2$r[1, 2] # Ok, the one we're looking for
+```
+
+``` {r echo = T}
+cor2$P[1, 2] # significant at
+```
+
+Well, $R$ is statistically significant indeed. Most social science students would typically conclude that everything's superfine here... Don't be lazy: (a) do the EDA of your variables before modeling, (b) inspect the scatter plot in *smart ways* - if there are natural groupings expected in the data set, use colors or shapes to mark them. In spite of the high, statistically significant Pearson's correlation coefficient between `Sepal.Length` and `Petal.Length`, this relationship violates linearity, and a model more powerful than simple linear regression is needed.
+
+However, let's pretend we've never seen this and start doing simple linear regression in R.
+
+#### 3.2 Simple Linear Regression: The Model
+
+We will now consider the following statistical model of a linear relationship between two random variables:
+
+$$Y = \beta_0 + \beta_1X_1 + \epsilon $$
+
+- $Y$ is the variable whose values we would like to be able to predict - and it is called a *criterion* or a *dependent variable* - from
+- $X$, which is called a *predictor*, or an *independent variable* in the Simple Linear Regression setting;
+- $\beta_0$ and $\beta_1$ are *model parameters*, of which the former represents the *intercept* while the later is the *slope* of the regression line (**note:** besides $\epsilon$, what the equation represents is nothing else but the equation of a straight line in a plane that you have seen a dozen times in high school); finally,
+- $\epsilon$ represents the model error term, which we will discuss in length in our Session.
+
+If we assume that the relationship between $X$ and $Y$ is indeed linear - and introduce some additional assumptions that we will discuss in our next session - the following question remains:
+
+> What values of $\beta_0$ and $\beta_1$ would pick a line in a plane spawned by $X$ and $Y$ values so that it describes the assumed linear relationship between them the best?
+
+Again:
+
+``` {r echo = T, message = F}
+# Let's test the assumption of linearity:
+ggplot(iris, aes(x = Sepal.Length, y = Petal.Length)) +
+  geom_point(size = 2, color = 'black') +
+  geom_point(size = 1.5, color = 'white') +
+  geom_smooth(method = 'lm', size = .25, color = 'red', se = F) +
+  ggtitle('Sepal Length vs Petal Length') +
+  theme_bw() + 
+  theme(panel.border = element_blank())
+```
+
+The line in this `{ggplot2}` scatter plot is the best fitting line for the assumed linear relationship between `iris$Sepal.Length` (taken to be a predictor, X-axis) and `iris$Petal.Length` (taken to be a criterion, Y-axis). {ggplot2} computed the best fitting line for us: **how?** Well, in the end, it did it by selecting the *optimal* values for $\beta_0$ and $\beta_1$. It is our task in this and the following sessions to figure out how does that selection of optimal parameter values takes place. 
+
+#### 3.3 Simple Linear Regression w. `lm()` in R
+
+In R we have the `lm()` function - short for *linear model* - to fit all different kinds of models in the scope of this model framework to the data:
+
+``` {r echo = T}
+### --- Linear Regression with lm()
+# Predicting: Petal Length from Sepal Length
+reg <- lm(Petal.Length ~ Sepal.Length, 
+          data = iris) 
+class(reg)
+```
+
+The `Petal.Length ~ Sepal.Length` is called a *formula*, and you should learn more about how formulas in R are syntactically composed. The simplest possible formula, like this one, simply informs R that we wish to model `Petal.Length` - standing to the left of `~` - by taking only `Sepal.Length` - standing to the right - as a predictor. For those who are already familiar with a multiple linear regression setting, doing `A ~ B + C` means calling for a linear model with `A` as a dependent variable and `B`, `C` as predictors. We will let these things complicate in the future, don't worry. The object `reg` stores the results of our attempt at a simple linear regression model, and has its own class of `lm`, as you can observe following the call to `class(reg)`.
+
+Let's inspect the result more thoroughly:
+
+``` {r echo = T}
+summary(reg)
+```
+
+The output provides: 
+
++ a call that has generated the linear model object `reg`;
++ a basic overview of descriptive statistics for model residuals;
++ a table of regression coefficients: there are only two for the simple linear regression model, namely the model intercept and the slope (i.e. the regression coefficient for the one and only predictor in the model), and the raw (not standardized) values of the predictors are reported in the `Estimate` column, accompanied by respective standard errors, t-test against zero, and the probabilities of committing to a $Type I$ error in drawing conclusions from these t-tests;
++ Residual Standard Error;
++ Multiple $R^2$ and the Adjusted $R^2$ values;
++ The $F$ test: ratio of variances computed from the *regression* and *residual SSEs*, with the respective number of degrees of freedom and its p-value. 
+
+To isolate the regression coefficients from the model:
+
+``` {r echo = T}
+coefsReg <- coefficients(reg)
+coefsReg
+```
+
+``` {r echo = T}
+slopeReg <- coefsReg[2]
+print(paste0("Slope: ", slopeReg))
+interceptReg <- coefsReg[1]
+print(paste0("Intercept: ", interceptReg))
+```
+
+You can also work with the `summary()` of the `lm` class as an object:
+
+``` {r echo = T}
+sReg <- summary(reg)
+str(sReg)
+```
+
+For example:
+
+``` {r echo = T}
+sReg$r.squared
+```
+
+Correlation is then:
+
+``` {r echo = T}
+sqrt(sReg$r.squared)
+```
+
+``` {r echo = T}
+sReg$fstatistic
+```
+
+``` {r echo = T}
+sReg$coefficients
+```
+
+Now, the distribution of residuals - the $\epsilon$ in the model equation - to be discussed in the Session:
+
+``` {r echo = T}
+hist(sReg$residuals, 20, probability = T,
+     main = 'Residuals',
+     xlab = 'Residuals', ylab = 'Density',
+     col = "orange")
+densRegRes <- data.frame(x  = sReg$residuals,
+                         y = dnorm(sReg$residuals, 
+                                   mean(sReg$residuals), 
+                                   sd(sReg$residuals)))
+densRegRes <- densRegRes[order(densRegRes$x), ]
+lines(densRegRes,
+      lty = "dashed", 
+      lwd = 1, 
+      col = "blue")
+```
+
+Interesting: from the last histogram, would you say that the residuals in this linear model are *normally distributed*? 
+
+### 4. Understanding Linear Regression
+
+#### 4.1 Sums of Squares in Simple Linear Regression
+
+Once again: `Sepal.Length` predicts `Petal.Length` in `iris`:
+
+``` {r echo = T, message = F}
+ggplot(data = iris,
+       aes(x = Sepal.Length, 
+           y = Petal.Length)) +
+  geom_point(aes(x = Sepal.Length, y = Petal.Length), color = "black", size = 2) +
+  geom_point(aes(x = Sepal.Length, y = Petal.Length), color = "white", size = 1.5) +
+  geom_smooth(method='lm', size = .25, color = "red") +
+  ggtitle("Sepal Length vs Petal Length") +
+  xlab("Sepal Length") + ylab("Petal Length") + 
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+
+Let's recall the form of the simple linear regression model:
+
+$$Y = \beta_0 + \beta_1X_1 + \epsilon$$
+
+or
+
+$$outcome_i = model + error_i$$
+
+where $i$ is an index across the whole dataset (i.e. each row, each pair of `Sepal.Length` and `Petal.Lenth`, each observation). So, statistical models make errors in their predictions, of course. Then what model works the best for a given dataset? The one that *minimizes the error*, of course.
+
+Take a look at the following chart:
+
+``` {r echo = T, message = F}
+ggplot(data = iris,
+       aes(x = Sepal.Length, 
+           y = Petal.Length)) +
+  geom_point(aes(x = Sepal.Length, y = Petal.Length), color = "black", size = 2) +
+  geom_point(aes(x = Sepal.Length, y = Petal.Length), color = "white", size = 1.5) +
+  geom_hline(yintercept = mean(iris$`Petal.Length`), 
+             linetype = "dashed", 
+             color = "red") + 
+  ggtitle("Sepal Length vs Petal Length") +
+  xlab("Sepal Length") + ylab("Petal Length") + 
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+
+The horizontal line in this chart has na intercept of `3.758`, which is the mean of `iris$Petal.Length`, the outcome variable in our simple linear regression model. If there were not a predictor `iris$Sepal.Length`, the mean of $Y$ would be our best possible guess about any new value observed on that variable. Let's take a look at the *residuals of the outcome variable from its own mean*:
+
+``` {r echo = T, message = F}
+linFit <- iris
+linFit$Petal.Length.AtMean <- linFit$Petal.Length - mean(linFit$Petal.Length)
+ggplot(data = linFit,
+       aes(x = Sepal.Length, 
+           y = Petal.Length)) +
+  geom_hline(yintercept = mean(iris$`Petal.Length`), 
+             linetype = "dashed", 
+             color = "red") +
+  geom_segment(aes(x = Sepal.Length, 
+                   y = Petal.Length, 
+                   xend = Sepal.Length, 
+                   yend = Petal.Length - Petal.Length.AtMean),
+               color = "black", size = .2, linetype = "dashed") +
+  geom_point(aes(x = Sepal.Length, y = Petal.Length), color = "black", size = 2) +
+  geom_point(aes(x = Sepal.Length, y = Petal.Length), color = "white", size = 1.5) +
+  geom_point(aes(x = Sepal.Length, y = mean(iris$Petal.Length)), color = "red", size = 1) +
+  xlab("Sepal.Length") + ylab("Petal.Length") +
+  theme_classic() +
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(strip.background = element_blank()) +
+  theme(axis.text.x = element_text(size = 6)) + 
+  theme(axis.text.y = element_text(size = 6)) 
+```
+What is our error, in total, if we start predicting the values of a variable from its mean alone, without any other predictor at hand? Enters the *Total Sum of Squares*, $SS_T$:
+
+``` {r echo = T, message = F}
+ss_total <- sum((iris$Petal.Length - mean(iris$Petal.Length))^2)
+print(ss_total)
+```
+
+Ok, now back to the simple linear regression model `Petal.Length ~ Sepal.Length`:
+
+``` {r echo = T, message = F}
+linFit <- lm(data = iris,
+             Petal.Length ~ Sepal.Length)
+linFit <- data.frame(
+  x = iris$Sepal.Length,
+  y = iris$Petal.Length,
+  predicted = linFit$fitted.values,
+  residuals = linFit$residuals
+)
+ggplot(data = linFit,
+       aes(x = x, y = y)) +
+  geom_smooth(method = lm, se = F, color = "red", size = .25) +
+  geom_segment(aes(x = x, 
+                   y = predicted, 
+                   xend = x, 
+                   yend = predicted + residuals),
+               color = "black", size = .2, linetype = "dashed") +
+  geom_point(aes(x = x, y = y), color = "black", size = 2) +
+  geom_point(aes(x = x, y = y), color = "white", size = 1.5) +
+  geom_point(aes(x = x, y = predicted), color = "red", size = 1) +
+  xlab("Sepal.Length") + ylab("Petal.Length") +
+  theme_classic() +
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(strip.background = element_blank()) +
+  theme(axis.text.x = element_text(size = 6)) + 
+  theme(axis.text.y = element_text(size = 6)) 
+```
+
+The *Residual Sum of Squares*,  $SS_R$,  is the sum of squared distances from the observed data points to the model's respective predictions:
+
+``` {r echo = T, message = F}
+slr_model <- lm(data = iris, 
+                Petal.Length ~ Sepal.Length)
+ss_residual <- sum(residuals(slr_model)^2)
+print(ss_residual)
+```
+
+Finally, the *Model Sum of Squares*,  $SS_M$.
+
+``` {r echo = T, message = F}
+linFit <- lm(data = iris,
+             Petal.Length ~ Sepal.Length)
+linFit <- data.frame(
+  x = iris$Sepal.Length,
+  y = iris$Petal.Length,
+  predicted = linFit$fitted.values,
+  meanY = mean(iris$Petal.Length)
+)
+ggplot(data = linFit,
+       aes(x = x, y = y)) +
+  geom_smooth(method = lm, se = F, color = "red", size = .25) +
+  geom_hline(yintercept = mean(iris$`Petal.Length`), 
+             linetype = "dashed", 
+             color = "red") +
+  geom_segment(aes(x = x, 
+                   y = predicted, 
+                   xend = x, 
+                   yend = meanY),
+               color = "red", size = .2, linetype = "dashed") +
+  geom_point(aes(x = x, y = y), color = "black", size = 2) +
+  geom_point(aes(x = x, y = y), color = "white", size = 1.5) +
+  geom_point(aes(x = x, y = predicted), color = "red", size = 1) +
+  xlab("Sepal.Length") + ylab("Petal.Length") +
+  theme_classic() +
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(strip.background = element_blank()) +
+  theme(axis.text.x = element_text(size = 6)) + 
+  theme(axis.text.y = element_text(size = 6)) 
+```
+
+The *Model Sum of Squares*,  $SS_M$, is based on the distances between the *mean of the outcome* and the *model predictions*:
+
+``` {r echo = T, message = F}
+ss_model <- sum((linFit$predicted - linFit$meanY)^2)
+print(ss_model)
+```
+
+Now:
+
+``` {r echo = T, message = F}
+print(ss_total - ss_residual)
+```
+
+!!! The complete error present in an attempt to predict `Petal.Length` from its mean alone, $SS_T$, can be thus decomposed into $SS_R$ and $SS_M$:
+
+$$SS_{total} = SS_{model} + SS_{residual} = SS_T = SS_M + SS_R$$
+#### 4.2 $F-test$, $t-test$, and $R^2$ in Simple Linear Regression 
+
+But there are more tricks waiting to be pulled, see:
+
+``` {r echo = T, message = F}
+slr_model <- lm(data = iris, 
+                Petal.Length ~ Sepal.Length)
+summary(slr_model)
+```
+
+What is $SS_M/SS_T$?
+
+``` {r echo = T, message = F}
+print(ss_model/ss_total)
+```
+
+So we have: $R^2 = SS_M/SS_T$!
+
+Now, remember that $F-test$ in the output that has been mentioned in the past?
+
+Let's divide $SS_M$ and $SS_R$ by their respective degrees of freedom. For the $df_R$ in the simple linear regression (as in other models as well) we take the number of observations minus the numbers of the parameters in the model (two, in our case: the intercept and the slope), while for the $df_M$ we need to take only the number predictors in the model (one, in our case):
+
+``` {r echo = T, message = F}
+df_residual <- dim(iris)[1] - 2 # - num.obs - num.parameters
+print(paste0("df_residual is: ", df_residual))
+df_model <- 1 # - how many variables?
+print(paste0("df_model is: ", df_model))
+ms_model <- ss_model/df_model
+ms_residual <- ss_residual/df_residual
+print(paste0("MS_model is: ", ms_model))
+print(paste0("MS_residual is: ", ms_residual))
+```
+
+They are now called *mean squares*, our $MS_M$ and $MS_R$. Ok, now:
+
+``` {r echo = T, message = F}
+f_test <- ms_model/ms_residual
+print(f_test)
+```
+
+And know we know that 
+
+$F = MS_{Model}/MS_{Residual} = MS_M/MS_R$. The $F-test$ follows the [$F-distribution$](https://en.wikipedia.org/wiki/F-distribution) with $df_M$ and $df_R$ degrees of freedom:
+
+``` {r echo = T, message = F}
+x <- rf(100000, df1 = ms_model, df2 = ms_residual)
+hist(x, 
+     freq = FALSE, 
+     xlim = c(0,3), 
+     ylim = c(0,1),
+     xlab = '', 
+     main = ('F-distribution with df_1 = MS_M and df_2 = MS_R degrees of freedom (df)'), 
+     cex.main=0.9)
+curve(df(x, df1 = 10, df2 = 20), from = 0, to = 4, n = 5000, col= 'pink', lwd=2, add = T)
+```
+
+And another thing to observe:
+
+```{r echo = T}
+print(f_test)
+```
+
+```{r echo = T}
+slr_summary <- summary(slr_model)
+slr_coeffs <- data.frame(slr_summary$coefficients)
+print(slr_coeffs)
+```
+
+```{r echo = T}
+slr_ttest <- slr_coeffs$t.value[2]
+print(slr_ttest^2)
+```
+
+```{r echo = T}
+print(f_test)
+```
+
+**N.B.** Complicated things have many correct interpretations and connections that exist among them. For example:
+
+- the best simple linear statistical is the one that maximizes the effect of the model ($MS_M$) while minimizing the effect of the error ($MS_R$), which means
+- that the best simple linear statistical model is simply the one that minimizes the error, since $SS_T = SS_M + SS_R$, and $SS_T$ is fixed since it only says about the dispersion of the outcome variable around its mean; then,
+- the overall effect of the model can be measured by the extent of the $F-test$, which is essentially a ratio of two variances, $MS_M$ and $MS_R$, telling us how much does the model "works" beyond the error it produces, and which is a simple mathematical transformation of the 
+- $t-test$ of whether the model's slope ($\beta_1$) is different from zero in which case we know that the regression line "works" because it is statistically different from a horizontal line of no correlation.
+
+
+### 5. On Minimizing Errors in Statistical Modeling   
+
+#### 5.1 Grid Search in the Parameter Space
+
+I want to write a function now. The function takes the following as its inputs:
+
++ a dataset with one predictor and one outcome variable
++ a pair of parameters, $\beta_0$ and $\beta_1$, 
+
+and it returns the *sum of squared errors (i.e. residuals)* from the simple linear regression of the well known $Y = \beta_0 + \beta_1X +\epsilon$ form. 
+
+Here is what I want essentially:
+
+```{r echo = T}
+d <- data.frame(x = iris$Sepal.Length,
+                y = iris$Petal.Length)
+residuals <- summary(lm(y ~ x, data = d))$residuals
+print(sum(residuals^2))
+```
+
+But I do not want to use `lm()`: instead, I want to be able to specify $/beta_0$ and $/beta_1$ myself:
+
+```{r echo = T}
+sse <- function(d, beta_0, beta_1) {
+  predictions <- beta_0 + beta_1 * d$x
+  residuals <- d$y - predictions
+  return(sum(residuals^2))
+}
+```
+
+Ok. Now, the `lm()` function in R can find the optimal values of the parameters $/beta_0$ and $/beta_1$, right?
+
+```{r echo = T}
+slr_model <- lm(y ~ x, data = d)
+coefficients(slr_model)
+```
+
+Let's test our `sse()` function:
+
+```{r echo = T}
+beta_0_test <- coefficients(slr_model)[1]
+beta_1_test <- coefficients(slr_model)[2]
+sse(d = d, 
+    beta_0 = beta_0_test, 
+    beta_1 = beta_1_test)
+```
+
+And from `lm()` again:
+
+```{r echo = T}
+d <- data.frame(x = iris$Sepal.Length,
+                y = iris$Petal.Length)
+residuals <- summary(lm(y ~ x, data = d))$residuals
+print(sum(residuals^2))
+```
+
+So we know that our `sse()` works just fine.
+
+Now: how could have determined the optimal values - *the error minimizing values* - of $/beta_0$ and $/beta_1$ *without relying on* `lm()`?
+
+One idea is to move across the space of the parameter values in small steps and compute the model error at each point in that space, for example:
+
+```{r echo = T}
+test_beta_0 <- seq(-10, 10, by = .1)
+test_beta_1 <- seq(-10, 10, by = .1)
+model_errors <- lapply(test_beta_0, function(x) {
+  return(
+    rbindlist(
+      lapply(test_beta_1, function(y) {
+        s <- sse(d = d, beta_0 = x, beta_1 = y)
+        return(data.frame(sse = s, 
+                          beta_0 = x, 
+                          beta_1 = y))
+    }))
+  )
+})
+model_errors <- rbindlist(model_errors)
+head(model_errors)
+```
+
+What would be the most optimal estimates of of $/beta_0$ and $/beta_1$ then?
+
+```{r echo = T}
+model_errors[which.min(model_errors$sse), ]
+```
+
+Compare:
+
+```{r echo = T}
+coefficients(slr_model)
+```
+
+Hm, not bad?
+
+#### 2.2 Sample the Parameter Space
+
+Another idea that comes to mind is the following one: why not take a uniform random sample from the Parameter Space and check out the `sse()` at various points defined by their $/beta_0$ and $/beta_1$ coordinates?
+
+```{r echo = T}
+sample_parameters <- data.frame(beta_0 = runif(100000, -10, 10), 
+                                beta_1 = runif(100000, -10, 10))
+head(sample_parameters)
+```
+
+Now let's find the model errors at each randomly sampled combination of parameters:
+
+```{r echo = T}
+sample_parameters$sse <- apply(sample_parameters, 1, function(x) {
+    sse(d, x[1], x[2])
+})
+head(sample_parameters)
+```
+
+And what would be the most optimal estimates of of $/beta_0$ and $/beta_1$ in this case?
+
+```{r echo = T}
+sample_parameters[which.min(sample_parameters$sse), ]
+```
+
+Compare:
+
+```{r echo = T}
+coefficients(slr_model)
+```
+
+Hm?
+
+**N.B.** Finding the optimal values of the model's parameters implies *some* sort of search through the Paramater Space, and picking the values that minimize the model error as much as possible.
+
+But there are better ways to do it than Grid Search or Random Sampling. And whenever that is possible, this is what we do to our statistical learning models: *we optimize them*.
+
+Please pay close attention to what exactly is happening in these procedures:
+
++ the dataset `d` is a constant, it does not change in any of the `sse()` function's run;
++ the parameters $/beta_0$ and $/beta_1$ vary in some way (until now: grid search or random uniform sampling), and 
++ the `sse()` function *does not estimate anything* - it is not `lm()`! - but computes the model error instead. 
+So what are we really looking for? **We are looking for a way to find the minimum of our `sse()` function.**
+
+#### 2.3 Optimize the Simple Linear Regression model w. base R optim()
+
+First we need a slight rewrite of `sse()` only:
+
+```{r echo = T}
+sse <- function(params) {
+  beta_0 <- params[1]
+  beta_1 <- params[2]
+  
+  # - MODEL IS HERE:
+  predictions <- beta_0 + beta_1 * d$x
+  # - MODEL ENDS HERE ^^
+  
+  residuals <- d$y - predictions
+  return(sum(residuals^2))
+}
+```
+
+**N.B.** As the dataset `d` is a constant, it does not play a role of an `sse()` function parameter anymore.
+
+Pick some random, initial values for $/beta_0$ and $/beta_1$:
+
+```{r echo = T}
+beta_0_start <- runif(1, -10, 10)
+beta_1_start <- runif(1, -10, 10)
+print(beta_0_start)
+print(beta_1_start)
+```
+
+Now **optimize** `sse()`:
+
+```{r echo = T}
+solution <- optim(par = c(beta_0_start, beta_1_start), 
+                  fn = sse, 
+                  method = "Nelder-Mead",
+                  lower = -Inf, upper = Inf)
+```
+
+```{r echo = T}
+print(solution$par)
+```
+
+Compare:
+
+```{r echo = T}
+coefficients(slr_model)
+```
+
+Now that looks great!
+
+What are we really looking at here is this (first reducing the `sample_parameters` data.frame a bit... :-)
+
+```{r echo = T}
+# - back to the old version of sse():
+sse <- function(d, beta_0, beta_1) {
+  predictions <- beta_0 + beta_1 * d$x
+  residuals <- d$y - predictions
+  return(sum(residuals^2))
+}
+# - sample parameters on a different range for plotting purposes
+sample_parameters <- data.frame(beta_0 = runif(1e6, -30, 30), 
+                                beta_1 = runif(1e6, -10, 10))
+sample_parameters$sse <- apply(sample_parameters, 1, function(x) {
+    sse(d, x[1], x[2])
+})
+head(sample_parameters)
+```
+
+```{r echo = T}
+fig <- plot_ly(sample_parameters, x = ~beta_0, y = ~beta_1, z = ~sse, type = "mesh3d",
+               color = ~sse, colors = "red", intensity = ~sse)
+
+fig <- fig %>% layout(scene = list(xaxis = list(title = "Beta 0"),
+                                   yaxis = list(title = "Beta 1"),
+                                   zaxis = list(title = "SSE")))
+
+fig
+```
+
+
+```{r echo = T}
+sample_parameters[which.min(sample_parameters$sse), ]
+```
+Compare:
+
+```{r echo = T}
+coefficients(slr_model)
+```
+
+
+### 6. Multiple Linear Regression: the exposition of the problem
+
+While Simple Linear Regression is extremely useful in a didactic perspective - to introduce statistical learning methods as such - is is only seldom used in practice. The real world is complex way beyond exploring only simple relationships, and mathematical models in practice almost necessarily deal with *many predictors* and the existing mutual information among them in an attempt to predict the state of the outcome variable. We will introduce the Multiple Linear Regression model in this session and discuss a more complex scenario involving several predictors. We will also introduce the method of *dummy coding* when categorical predictors are present in the Multiple Linear Regression scenario. We are also laying ground for even more complex *Generalized Linear Models* that can handle categorization problems beyond regression. Finally: comparing nested regression models.
+
+In Multiple Linear Regression, we are considering the following linear model:
+
+$$Y = \beta_0 + \beta_1X_1 + \beta_2X_2 + ... + \beta_kX_k + \epsilon$$
+
+#### 6.1 Iris, again
+
+The `iris' dataset again offers everything that we need to introduce a new statistical model. One might wonder, but that small and (manifestly!) simple dataset can be used as well to introduce even more complex statistical models than Multiple Linear Regression!
+
+```{r echo = T, message = F}
+data(iris)
+str(iris)
+```
+
+And back to the problem with `Petal.Length ~ Sepal.Length` regression that we have already discussed:
+
+```{r echo = T, message = F}
+ggplot(data = iris,
+       aes(x = Sepal.Length, 
+           y = Petal.Length)) +
+  geom_point(size = 2, colour = "blue") +
+  geom_smooth(method='lm', size = .25) +
+  ggtitle("Sepal Length vs Petal Length") +
+  xlab("Sepal Length") + ylab("Petal Length") + 
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+
+... where everything *looks* nice until...
+
+```{r echo = T, message = F}
+ggplot(data = iris,
+       aes(x = Sepal.Length, 
+           y = Petal.Length, 
+           color = Species, 
+           group = Species)) +
+  geom_point(size = 2) +
+  geom_smooth(method='lm', size = .25) +
+  ggtitle("Sepal Length vs Petal Length") +
+  xlab("Sepal Length") + ylab("Petal Length") + 
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+
+Not to mention the model assumptions that we have discussed in the previous Session.
+
+Let's study the problem a bit.
+
+```{r echo = T, message = F}
+plot(iris[ , c(1,3,5)],
+     main = 
+       "Inspect: Sepal vs. Petal Length \nfollowing the discovery of the Species...",
+     cex.main = .75,
+     cex = .6)
+```
+
+Did we ever mention `{lattice}`, the hero of data visualization in R before `{ggplot2}`?
+
+```{r echo = T, message = F}
+# - {latice} xyplot
+xyplot(Petal.Length ~ Sepal.Length | Species,
+       data = iris,
+       xlab = "Sepal Length", 
+       ylab = "Petal Length"
+)
+```
+
+Consider the *conditional densities* of `Petal.Length` given `Species` (using `{lattice}` again):
+
+```{r echo = T, message = F}
+# - {latice} densityplot
+densityplot(~ Petal.Length | Species,
+            data = iris,
+            plot.points = FALSE,
+            xlab = "Petal Length", 
+            ylab = "Density",
+            main = "P(Petal Length|Species)",
+            col.line = 'red'
+)
+```
+
+And now consider the *conditional densities* of `Sepal.Length` given `Species`:
+
+```{r echo = T, message = F}
+# - {latice} densityplot
+densityplot(~ Sepal.Length | Species,
+            data = iris,
+            plot.points=FALSE,
+            xlab = "Sepal Length", ylab = "Density",
+            main = "P(Sepal Length|Species)",
+            col.line = 'blue'
+)
+```
+
+I have and idea: why not run a series of separate Simple Linear Regressions in the subgroups defined by `Species` and inspect the results? Let's do it:
+
+```{r echo = T, message = F}
+# - setosa
+species <- unique(iris$Species)
+w1 <- which(iris$Species == species[1])
+reg <- lm(Petal.Length ~ Sepal.Length, 
+          data = iris[w1, ]) 
+tidy(reg)
+```
+
+```{r echo = T, message = F}
+# - versicolor
+w2 <- which(iris$Species == species[2])
+reg <- lm(Petal.Length ~ Sepal.Length, data = iris[w2,]) 
+tidy(reg)
+```
+
+```{r echo = T, message = F}
+# - virginica
+w3 <- which(iris$Species == species[3])
+reg <- lm(Petal.Length ~ Sepal.Length, data = iris[w3,]) 
+tidy(reg)
+```
+
+I have used `broom::tidy()` to tidy up the model summaries. The [{broom}](https://cran.r-project.org/web/packages/broom/vignettes/broom.html) package offers many useful functions to deal with potentially messy outputs of R's modeling functions such as `lm()`.
+
+So, `Species` obviously has some effect on `Petal.Length`, and that effect possibly goes even beyond the effect of `Sepal.Length`. How do we incorporate another predictor into the regression model?
+
+The `broom::glance()` function is similar to `summary()` but gives us the model overview all tidy:
+
+```{r echo = T}
+broom::glance(reg)
+```
+
+#### 6.2 The predictor is categorical: Dummy Coding
+
+We will now try to predict `Petal.Length` from `Species` alone in a Simple Linear Regression model. First:
+
+```{r echo = T}
+is.factor(iris$Species)
+```
+
+Ok, and the levels?
+
+```{r echo = T}
+levels(iris$Species)
+```
+
+Regression with *one categorical predictor*:
+
+```{r echo = T}
+reg <- lm(Petal.Length ~ Species, 
+          data = iris) 
+tidy(reg)
+```
+
+What effects are present? Let's see: `Speciesversicolor`, `Speciesvirginica`, ok, but what happened to `Speciessetosa`..? It is our **baseline**, see:
+
+```{r echo = T}
+levels(iris$Species)
+```
+
+Never forget what the regression coefficient of a **dummy variable** means: *it tells us about the effect of moving from the baseline towards the respective reference level*. Here: `baseline = setosa` (cmp. `levels(iris$Species)` vs. the output of `tidy(reg)`). **Hence:** always look after the order of levels in linear models!
+
+For example, we can change the baseline in `Species` to `versicolor`:
+
+```{r echo = T}
+# - Levels: setosa versicolor virginica
+levels(iris$Species)
+```
+
+```{r echo = T}
+iris$Species <- factor(iris$Species, 
+                       levels = c("versicolor", 
+                                  "virginica",
+                                  "setosa")
+                       )
+levels(iris$Species)
+```
+
+Regression again:
+
+```{r echo = T}
+# - baseline is now: versicolor
+reg <- lm(Petal.Length ~ Species, 
+          data = iris) 
+tidy(reg)
+```
+
+#### 6.3 Understanding dummy coding
+
+Here is another way to perform dummy coding of categorical variables in R:
+
+```{r echo = T}
+# - ...just to fix the order of Species back to default
+rm(iris); data(iris)
+levels(iris$Species)
+```
+
+In order to understand what dummy coding really is:
+
+```{r echo = T}
+contr.treatment(3, base = 1)
+```
+
+And then specifically applied to `iris$Species`:
+
+```{r echo = T}
+contrasts(iris$Species) <- contr.treatment(3, base = 1)
+contrasts(iris$Species)
+```
+
+Do not forget that:
+
+```{r echo = T}
+class(iris$Species)
+```
+
+Now let's play with level ordering:
+
+```{r echo = T}
+iris$Species <- factor(iris$Species, 
+                       levels = c ("virginica", 
+                                   "versicolor", 
+                                   "setosa"))
+levels(iris$Species)
+```
+
+```{r echo = T}
+contrasts(iris$Species) = contr.treatment(3, base = 1)
+# - baseline is now: virginica
+contrasts(iris$Species)
+# - consider carefully what you need to do
+```
+
+```{r echo = T}
+levels(iris$Species)
+```
+
+### 7. Multiple Linear Regression: the problem solved
+
+#### 7.1 One categorical + one continuous predictor
+
+Now we run a multiple linear regression model with `Sepal.Length` and `Species` (dummy coded) as predictors of `Petal.Length`:
+
+```{r echo = T}
+# - Petal.Length ~ Species (Dummy Coding) + Sepal.Length 
+rm(iris); data(iris) # ...just to fix the order of Species back to default
+reg <- lm(Petal.Length ~ Species + Sepal.Length, 
+          data = iris)
+tidy(reg)
+```
+
+```{r echo = T}
+glance(reg)
+```
+
+**N.B.** Since is.factor `(iris$Species) == T` - R does the dummy coding in lm() internally for us!
+
+Let's now compare these results with the simple linear regression model:
+
+```{r echo = T}
+reg <- lm(Petal.Length ~ Sepal.Length, data=iris) 
+tidy(reg)
+```
+
+```{r echo = T}
+glance(reg)
+```
+
+#### 7.2 Nested models
+
+We will now specify two regression models: `reg1` defined as `Petal.Length ~ Sepal.Length` and `reg2` defined as `Petal.Length ~ Species + Sepal.Length`. Obviously, `reg2` encompasses `reg1` in some way, right? Of course: the predictors in one model are a subset of predictors in another. Such models are called *nested models*. In this terminological game, `reg2` would also be called a **full model**: a terminology will be used quite often in Binary Logistic Regression, the first Generalized Linear Model that we will meet in our next session.
+
+**Note on nested models:** There is always a set of coefficients for the nested model (e.g. `reg1`) such that it can be expressed in terms of the full model (`reg2`). Can you figure it out?
+
+```{r echo = T}
+# - reg1 is nested under reg2
+reg1 <- lm(Petal.Length ~ Sepal.Length, 
+           data = iris)
+reg2 <- lm(Petal.Length ~ Species + Sepal.Length, 
+           data = iris)
+```
+
+We can use the [partial F-test](http://pages.stern.nyu.edu/~gsimon/B902301Page/CLASS02_24FEB10/PartialFtest.pdf) to compare nested models:
+
+```{r echo = T}
+anova(reg1, reg2) # partial F-test; Species certainly has an effect beyond Sepal.Length
+```
+
+#### 7.3 Model diagnostics
+
+We can use the same kind of Influence Plot to search for influential cases in Multiple Linear Regression as we did in the case of Simple Linear Regression (except for this time the computation of the relevant indicators is way more complicated):
+
+```{r echo = T}
+infReg <- as.data.frame(influence.measures(reg2)$infmat)
+head(infReg)
+```
+
+This time we will use `broom:augment()` to obtain the influence measures:
+
+```{r echo = T}
+regFrame <- broom::augment(reg2)
+head(regFrame)
+```
+
+Produce the Influence Chart:
+
+```{r echo = T}
+plotFrame <- data.frame(residual = regFrame$.std.resid,
+                        leverage = regFrame$.hat,
+                        cookD = regFrame$.cooksd)
+ggplot(plotFrame,
+       aes(y = residual,
+           x = leverage)) +
+  geom_point(size = plotFrame$cookD * 100, 
+             shape = 1, color = "blue") +
+  ylab("Standardized Residual") + 
+  xlab("Leverage") +
+  ggtitle("Influence Plot\nSize of the circle corresponds to Cook's distance") +
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(size = 8, 
+                                  face = "bold", 
+                                  hjust = .5))
+```
+
+### 8. Several continuous predictors
+
+#### 8.1 The `stackloss` problem
+
+The following example is a modification of the [multiple-linear-regression section](http://www.r-tutor.com/elementary-statistics/multiple-linear-regression) from [R Tutorial](http://www.r-tutor.com/).
+
+```{r echo = T}
+data(stackloss)
+str(stackloss)
+```
+
+The description of the `stackloss` dataset is found in the [documentation](https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/stackloss.html):
+
+-   `Water Temp` is the temperature of cooling water circulated through coils in the absorption tower;
+-   `Air Flow` is the flow of cooling air;
+-   `Acid Conc.` is the concentration of the acid circulating;
+-   `stack.loss` (the outcome variable) is 10 times the percentage of the ingoing ammonia to the plant that escapes from the absorption column unabsorbed; that is, an (inverse) measure of the overall efficiency of the plant.
+
+```{r echo = T}
+stacklossModel <- lm(stack.loss ~ Air.Flow + Water.Temp + Acid.Conc.,
+                     data = stackloss)
+summary(stacklossModel)
+```
+
+```{r echo = T}
+glance(stacklossModel)
+```
+
+```{r echo = T}
+tidy(stacklossModel)
+```
+
+Prediction for one single new data point:
+
+```{r echo = T}
+# predict new data
+obs = data.frame(Air.Flow = 72, 
+                 Water.Temp = 20, 
+                 Acid.Conc. = 85)
+predict(stacklossModel, 
+        obs)
+```
+
+The `confint()` functions works as usual, for 95% CI...
+
+```{r echo = T}
+confint(stacklossModel, level = .95) # 95% CI
+```
+
+... as well as for %99 CI:
+
+```{r echo = T}
+confint(stacklossModel, level = .99) # 99% CI
+```
+
+#### 8.2 Multicolinearity in Multiple Regression
+
+That crazy thing with multiple regression: if the predictors are not correlated at all, why not run a series of simple linear regressions? On the other hand, if the predictors are highly correlated, problems with the estimates arise... John Fox's `{car}` package allows us to compute the *Variance Inflation Factor* quite easily:
+
+```{r echo = T}
+VIF <- vif(stacklossModel)
+VIF
+```
+
+The Variance Inflation Factor (VIF) measures the increase in the *variance* of a regression coefficient due to colinearity. It's square root (`sqrt(VIF)`) tells us how much larger a standard error of a regression coefficient is compared to a hypothetical situation where there were no correlations with any other predictors in the model. **NOTE:** The lower bound of VIF is 1; there is no upper bound, but VIF \> 2 typically indicates that one should be concerned.
+
+```{r echo = T}
+sqrt(VIF)
+```
+
+
+### Further Readings
+
+- [VIDEO - In depth, highly recommended: Exploring bivariate numerical data, Khan Academy](https://www.khanacademy.org/math/statistics-probability/describing-relationships-quantitative-data)
+- [Simple Linear Regression in R from STHDA - A brief overview](http://www.sthda.com/english/articles/40-regression-analysis/167-simple-linear-regression-in-r/)
+- [Regression, by David M. Lane](http://onlinestatbook.com/2/regression/regression.html)
+- [{broom} package: Vignette](https://cran.r-project.org/web/packages/broom/vignettes/broom.html)
+
+
+### R Markdown
+
+[R Markdown](https://rmarkdown.rstudio.com/) is what I have used to produce this beautiful Notebook. We will learn more about it near the end of the course, but if you already feel ready to dive deep, here's a book: [R Markdown: The Definitive Guide, Yihui Xie, J. J. Allaire, Garrett Grolemunds.](https://bookdown.org/yihui/rmarkdown/) 
+
+***
+
+Goran S. Milovanović
+
+DataKolektiv, 2023.
+
+contact: goran.milovanovic@datakolektiv.com
+
+![](_img/DK_Logo_100.png)
+
+***
+License: [GPLv3](http://www.gnu.org/licenses/gpl-3.0.txt)
+This Notebook is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+This Notebook is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+You should have received a copy of the GNU General Public License along with this Notebook. If not, see <http://www.gnu.org/licenses/>.
+
+***
+
+
