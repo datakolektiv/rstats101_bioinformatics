@@ -13,7 +13,14 @@ output: html_notebook
 
 ### What do we want to do today?
 
-Something...
+Today we will
+
+- introduce the concept of Likelihood in Probability Theory,
+- learn how to use Maximum Likelihood Estimation (MLE) of model parameters,
+- learn how to select models based on the Akaike Information Criterion,
+- introduce the Binomial Logistic Regression,
+- learn how does MLE works in Binomial Logistic Regression, and
+- learn how to interpret the results of this Generalized Linear Model.
 
 ## 0. Setup
 
