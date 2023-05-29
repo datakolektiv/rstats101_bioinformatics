@@ -1,0 +1,823 @@
+---
+title: "RStats 101: Maximum Likelihood Estimation. Enter GLMs: Binomial Logistic Regression."
+output: html_notebook
+---
+
+**Authors:**
+
+**Goran S. Milovanović, Phd, Psychology**
+**Aleksandar Cvetković, Phd, Mathematics**
+
+
+**Course.** Introduction to R programming and mathematical statistics for bioinformatics and biomedical sciences, 2023, INSTITUTE OF MOLECULAR GENETICS AND GENETIC ENGINEERING University of Belgrade.
+
+### What do we want to do today?
+
+Something...
+
+## 0. Setup
+
+```{r echo = T, message = F, warning = F}
+dataDir <- paste0(getwd(), "/_data/")
+library(tidyverse)
+library(plotly)
+```
+
+## 1. REVIEW: Binomial Distribution
+
+Binomial distribution gives an answer to the following question: *what's the probability of getting $k$ hits in $n$ trials of the same hit/miss experiment, having probability of hit equal to $p$?*
+
+Binomial Distribution has two parameters:
+
+- $n$: number of repetitions of the same experiment
+- $p$: probability of a hit (success)
+
+If a random variable $X$ has a Binomial Distribution with parameters $n$ and $p$, we write that
+
+$$ X \sim \mathcal{B}(n, p).$$
+
+For example, we'd like to know what's the probability of landing 7 Heads in tossing a coin 10 times. We can approximate this probability by sampling from the Binomial Distribution with parameters $n=10$ and $p=0.5$ ($\mathcal{B}(100, 0.5)$), using `rbinom()`.
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+outcomes = rbinom(n = 100, prob = .5, size = 10)
+outcomes
+```
+
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+no_outcomes = as.data.frame(table(outcomes))
+ggplot(no_outcomes,
+       aes(x = outcomes,
+           y = Freq)) +
+  geom_bar(stat = "identity", color = "darkblue", fill = "white") + 
+  xlab("Outcomes") + ylab("Frequency") +
+  theme_minimal() + 
+  ggtitle("Binomial Statistical Experiment") +
+  theme(plot.title = element_text(hjust = .5, size = 10)) +
+  theme(legend.position = "none")
+```
+
+We can actually calculate theoretical Binomial probabilities, via
+
+$$P(X = k) = \binom{n}{k}p^k(1-p)^{n-k},$$
+
+where $\binom{n}{k}$, called *binomial coefficient*, is
+
+$$\binom{n}{k} = \frac{n!}{k!(n-k)!}.$$
+
+### Random Number Generation from the Binomial
+
+`rbinom()` will provide a vector of random deviates from the Binomial distribution with the desired parameter, e.g.:
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+# Generate a sample of random binomial variates:
+randomBinomials <- rbinom(n = 100, size = 1, p = .5)
+randomBinomials
+```
+
+Now, if each experiment encompasses 100 coin tosses:
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+randomBinomials <- rbinom(n = 100, size = 100, p = .5)
+randomBinomials # see the difference?
+```
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+randomBinomials <- rbinom(n = 100, size = 10000, p = .5)
+randomBinomials
+```
+
+Let’s plot the distribution of the previous experiment:
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+randomBinomialsPlot <- data.frame(success = randomBinomials)
+ggplot(randomBinomialsPlot, 
+       aes(x = success)) + 
+  geom_histogram(binwidth = 10, 
+                 fill = 'white', 
+                 color = 'darkblue') +
+  theme_minimal() + 
+  theme(panel.border = element_blank())
+```
+
+Interpretation: we were running 100 statistical experiments, each time drawing a sample of 10000 observations of a fair coin ($p=.5$). And now,
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+randomBinomials <- rbinom(100000, size = 100000, p = .5)
+randomBinomialsPlot <- data.frame(success = randomBinomials)
+ggplot(randomBinomialsPlot, 
+       aes(x = success)) + 
+  geom_histogram(binwidth = 10, 
+                 fill = 'white', 
+                 color = 'darkblue') +
+  theme_minimal() + 
+  theme(panel.border = element_blank())
+```
+
+… we were running 10000 statistical experiments, each time drawing a sample of 100000 observations of a fair coin ($p=.5$).
+
+So, we have the Probability Mass Function (p.m.f):
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+heads <- 0:100
+binomialProbability <- dbinom(heads, size = 100, p = .5)
+sum(binomialProbability)
+```
+
+Where `sum(binomialProbability) == 1` is `TRUE` because this is a discrete distribution so its Probability Mass Functions outputs probability indeed!
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+binomialProbability <- data.frame(heads = heads,
+                                  density = binomialProbability)
+ggplot(binomialProbability, 
+       aes(x = heads, 
+           y = density)) + 
+  geom_bar(stat = "identity", 
+           fill = 'white',
+           color = 'darkblue') +
+  ggtitle("Binomial P.M.F.") +
+  theme_minimal() + 
+  theme(panel.border = element_blank()) +
+  theme(plot.title = element_text(hjust = .5, size = 10))
+```
+
+The Cumulative Distribution Function (c.d.f), on the other hand:
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+heads <- 1:100
+binomialProbability <- pbinom(heads, size = 100, p = .5)
+sum(binomialProbability)
+```
+
+
+```{r echo=TRUE, warning=FALSE, message=FALSE}
+binomialProbability <- data.frame(heads = heads,
+                                  cumprob = binomialProbability)
+ggplot(binomialProbability, 
+       aes(x = heads, 
+           y = cumprob)) + 
+  geom_bar(stat = "identity", 
+           fill = 'white',
+           color = 'darkblue') +
+  ylab("P(heads <= x)") + 
+  ggtitle("Binomial C.D.F.") +
+  theme_minimal() + 
+  theme(panel.border = element_blank()) +
+  theme(plot.title = element_text(hjust = .5, size = 10))
+```
+
+## 2. Likelihood
+
+Imagine we toss a fair coin with $p_H = .5$ twice and observe two Heads.The probability of observing two heads with $p_H = .5$ is:
+
+$$P(HH|p_H = .5) = .5 * .5 = .5^{2} = .25$$
+
+Now take a look at the following function: $P(HH|p_H)$. Imagine that the data, the results of our observations - that we have seen two heads in a row - are *fixed*. Than $P(HH|p_H)$ is *a function of the parameter* $p_H$. Imagine that we start changing the value of $p_H$ while keeping the data fixed and with every change in parameter we compute the value of $P(HH|p_H)$ again and again. For example, what is the value of $P(HH|p_H)$ if $p_H = .3$?
+
+$$P(HH|p_H = .3) = .3 * .3 = .3^{2} = .09$$
+
+And what if $p_H = .9$?
+
+$$P(HH|p_H = .9) = .9 * .9 = .9^{2} = .81$$
+
+We have observed two heads; in the universe of our small statistical experiment we have actually observed *all heads*, right? So, as we increase the value of $p_H$, the value of $P(HH|p_H)$ tends to increase: it was `.09` when $p_H = .3$, then `.25` for $p_H = .5$, and finally `.81` for $p_H = .9$. Even if we already know that the coin is fair - hence $p_H = .5$ - the *observed data inform us* that it is more *likely* to be higher.
+
+$P(HH|p_H)$, also written as $L(p_H|HH)$, reads: the **likelihood** of the parameter value $p_H$ *given* the data $HH$. We can plot the whole **Likelihood function** for this experiment easily:
+
+```{r echo = TRUE, message = FALSE, warning=FALSE}
+likelihood <- data.frame(parameter = seq(.01, .99, by = .01))
+likelihood$likelihood <- likelihood$parameter^2
+
+ggplot(likelihood, 
+       aes(x = parameter, 
+           y = likelihood)) + 
+  geom_smooth(linewidth = .25, se = F) + 
+  ggtitle("Likelihood function for HH") +
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+
+What if we have observed $HHTTH$ in five tosses?
+
+```{r echo = T, message = F}
+likelihood <- data.frame(parameter = seq(.01, .99, by = .01))
+
+likelihood$likelihood <- 
+  likelihood$parameter^2 * (1-likelihood$parameter)^2 * likelihood$parameter
+
+ggplot(likelihood, 
+       aes(x = parameter, 
+           y = likelihood)) + 
+  geom_smooth(linewidth = .25, se = F) + 
+  ggtitle("Likelihood function for HHTTH") +
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+
+How did we get to it? Look, if the data are $HHTTH$, then the Likelihood function for $p_H = .2$ must be:
+
+$$P(HHTTH|p_H = .2) = .2 * .2 * (1-.2) * (1-.2) * .2 = .2^{2} *  (1-.2)^{2} * .2 = .00512$$
+
+Let's check in R:
+
+```{r echo = T}
+.2^2*(1-.2)^2*.2
+```
+
+And now we just need to compute the Likelihood function across the whole domain of $p_H$. As simple as that!
+
+## 3. Maximum Likelihood Estimation (MLE)
+
+Maximum Likelihood Estimation (MLE) is yet another approach in estimating model parameters. It is a way of estimating the parameter(s) of probability distribution that generated the sample that we have at hand.
+
+With this comes the concept of *likelihood*, which is simply defined as
+
+$$\mathcal{L}(A|B) = P(B|A).$$
+
+So, the likelihood of the event $A$ occurring given that the event $B$ has occured is equal to the conditional probability of event $B$ occurring under the condition that the event $A$ has occured. 
+If the speak in terms of random varable and distribution parameters we usually write 
+
+$$\mathcal{L}(\theta; X) = P(X; \theta) = P_{\theta}(X),$$
+
+where $X$ is RV and $\theta$ are its distributions' parameters (when there is a single parameter $\theta$ is scallar, and when there are multiple parameters ${\theta}$ is a vector).
+
+So, the likelihood of the event $B$ occurring given that the event $A$ has occurred is equal to the conditional probability of event $A$ occurring under the condition that the event $B$ has occurred.
+
+In general, if we have the sample of N observations, we have:
+
+$$\mathcal{L}(\theta; x_1, x_2,..., x_N) = \prod_{i=1}^{N}{P(x_i; \theta)}. $$ 
+
+This multiplication can easily get computationally intractable in practice. This is the reason why we define *log-likelihood* as:
+
+$$\mathcal{l}(\theta; x_1, x_2,..., x_N) = log(\prod_{i=1}^{N}{P(x_i; \theta)}) = \sum_{i=1}^{N}{log(P(x_i; \theta))}.$$
+
+This works because the logarithm is a strictly increasing function, and by maximizing the **log-likelihood** we are in essence maximizing *likelihood*.
+
+Again, what if we have observed $HHTTH$ in five tosses?
+
+```{r echo = T, message = F}
+likelihood <- data.frame(parameter = seq(.01, .99, by = .01))
+
+likelihood$likelihood <- 
+  log(likelihood$parameter^2 * (1-likelihood$parameter)^2 * likelihood$parameter)
+
+ggplot(likelihood, 
+       aes(x = parameter, 
+           y = likelihood)) + 
+  geom_smooth(linewidth = .25, se = F) + 
+  ggtitle("Log-Likelihood function for HHTTH") +
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+
+Sometimes, for technical reasons only, we choose not to maximize the Log-Likelihood function, but to minimize the **Negative Log-Likelihood function**:
+
+```{r echo = T, message = F, warning=FALSE}
+likelihood <- data.frame(parameter = seq(.01, .99, by = .01))
+
+likelihood$likelihood <- 
+  -log(likelihood$parameter^2 * (1-likelihood$parameter)^2 * likelihood$parameter)
+
+ggplot(likelihood, 
+       aes(x = parameter, 
+           y = likelihood)) + 
+  geom_smooth(linewidth = .25, se = F) + 
+  ggtitle("Negative Log-Likelihood function for HHTTH") +
+  theme_bw() + 
+  theme(panel.border = element_blank()) + 
+  theme(plot.title = element_text(hjust = .5))
+```
+
+While for discrete random variables, the likelihood function is defined as:
+
+$$\mathcal{L}(\theta|x_1,x_2,\ldots,x_n) = \prod_{i=1}^{n} P(X=x_i|\theta)$$
+
+where:
+
+- \(\mathcal{L}(\theta|x_1,x_2,\ldots,x_n)\) is the likelihood function given the observed data \(x_1,x_2,\ldots,x_n\) and the parameter \(\theta\),
+- \(P(X=x_i|\theta)\) is the probability mass function (PMF) of the discrete random variable \(X\) evaluated at \(x_i\) given the parameter \(\theta\),
+- \(n\) is the number of observed data points;
+
+for continuous random variables, the likelihood function is defined as:
+
+$$\mathcal{L}(\theta|x_1,x_2,\ldots,x_n) = \prod_{i=1}^{n} f(x_i|\theta)$$
+
+where:
+
+- \(\mathcal{L}(\theta|x_1,x_2,\ldots,x_n)\) is the likelihood function given the observed data \(x_1,x_2,\ldots,x_n\) and the parameter \(\theta\),
+- \(f(x_i|\theta)\) is the probability density function (PDF) of the continuous random variable evaluated at \(x_i\) given the parameter \(\theta\),
+- \(n\) is the number of observed data points.
+
+The likelihood function for continuous random variables is calculated by taking the product of the **individual probability densities** of each data point.
+
+## 4. Maximum Likelihood Estimation (MLE) in Model Selection: which distribution fits my data better?
+
+Let's produce a vector of random observations from the Normal distribution with $\mu=3.5$ and $\sigma^2=.27$.
+
+```{r echo = T, message = F, warning=FALSE}
+# sample
+data_points <- rnorm(10000, mean = 3.5, sd = .27)
+
+# Create a data frame with the data_points vector
+data <- data.frame(x = data_points)
+
+# Create the histogram using ggplot2
+ggplot(data, aes(x)) +
+  geom_histogram(bins = 100, fill = "lightblue", color = "black") +
+  labs(x = "Data Points", y = "Frequency") +
+  ggtitle("Histogram of Data Points") +
+  theme_minimal()
+```
+
+Ok, so **we know** that the true distribution is Normal with $\mu=3.5$ and $\sigma^2=.27$.
+
+Here comes the question:
+
+- what if we observe only `data_points` and ask
+- what distribution is more likely to have produced the data: Normal, with parameters $\mu$ and $\sigma$, or Gamma, with parameters $k$ (shape) and $\theta$ (scale)?
+
+Let's find out about the MLE estimates of $\mu$ and $\sigma$ for `data_points` first:
+
+```{r echo = T, message = F, warning=FALSE}
+# Define the negative log-likelihood function
+neg_log_likelihood <- function(params, data) {
+  mu <- params[1]  # mean parameter
+  sigma <- params[2]  # standard deviation parameter
+  # Calculate the negative log-likelihood
+  nll <- -sum(dnorm(data, mean = mu, sd = sigma, log = TRUE))
+  return(nll)
+}
+
+# Set initial parameter values
+initial_params <- c(mean = 10, sd = 5)
+
+# Optimize the negative log-likelihood function using Nelder-Mead method
+result <- optim(par = initial_params, 
+                fn = neg_log_likelihood, 
+                data = data_points,
+                method = "Nelder-Mead")
+
+# Extract the estimated parameters and negative log-likelihood value
+estimated_params <- result$par
+negative_log_likelihood <- result$value
+
+# Print the results
+print(paste("Estimated Mean:", estimated_params[1]))
+print(paste("Estimated Standard Deviation:", estimated_params[2]))
+print(paste("Negative Log-Likelihood at Maximum:", negative_log_likelihood))
+```
+
+Now, let's do the same for Gamma with parameters $k$ (shape) and $\theta$ (scale):
+
+```{r echo = T, message = F, warning=FALSE}
+# Define the negative log-likelihood function for the Gamma distribution
+neg_log_likelihood_gamma <- function(params, data) {
+  k <- params[1]  # shape parameter
+  theta <- params[2]  # scale parameter
+  
+  # Calculate the negative log-likelihood
+  nll <- -sum(dgamma(data, shape = k, scale = theta, log = TRUE))
+  
+  return(nll)
+}
+
+# Set initial parameter values
+initial_params_gamma <- c(shape = 1, scale = 1)
+
+# Optimize the negative log-likelihood function for the Gamma distribution
+result_gamma <- optim(par = initial_params_gamma, 
+                      fn = neg_log_likelihood_gamma,
+                      data = data_points, 
+                      method = "Nelder-Mead")
+
+# Extract the estimated parameters and negative log-likelihood value
+estimated_params_gamma <- result_gamma$par
+negative_log_likelihood_gamma <- result_gamma$value
+
+# Print the results
+print(paste("Estimated Shape (k):", estimated_params_gamma[1]))
+print(paste("Estimated Scale (Theta):", estimated_params_gamma[2]))
+print(paste("Negative Log-Likelihood at Maximum:", negative_log_likelihood_gamma))
+```
+
+How to compare these two models of our data in `data_points`?
+
+### The Akaike Information Criterion (AIC)
+
+The Akaike Information Criterion (AIC) is a measure used for model selection and comparison. It quantifies the trade-off between model complexity and goodness of fit, providing a way to assess the relative performance of different models. The AIC is defined as:
+
+$$\text{AIC} = -2 \ln(L) + 2k$$
+
+where:
+- \(\text{AIC}\) is the Akaike Information Criterion.
+- \(L\) is the maximum value of the likelihood function for the model.
+- \(k\) is the number of estimated parameters in the model.
+
+The AIC evaluates the fit of a model to the data while taking into account the number of parameters used. It penalizes models with a larger number of parameters to discourage overfitting, balancing model complexity with the quality of fit.
+
+A lower AIC value indicates a better trade-off between goodness of fit and model complexity. Therefore, when comparing models, the model with the lowest AIC is generally considered the preferred choice.
+
+The AIC provides a way to balance the fit of a model to the data with the number of parameters used, enabling researchers to select a model that achieves a good fit while avoiding excessive complexity. However, it is important to note that the AIC is only one criterion among several for model selection, and it should be used in conjunction with other considerations, such as theoretical background, interpretability, and contextual relevance.
+
+Let's compute AIC for Normal and Gamma distributions in respect to how well do they fit `data_points`:
+
+```{r echo = T, message = F, warning=FALSE}
+num_params <- 2
+normal_AIC <- 2*negative_log_likelihood + 2*num_params
+print(paste0("AIC for Normal: ", normal_AIC))
+```
+
+```{r echo = T, message = F, warning=FALSE}
+num_params <- 2
+normal_AIC <- 2*negative_log_likelihood_gamma + 2*num_params
+print(paste0("AIC for Normal: ", normal_AIC))
+```
+
+## 5. Enter Generalized Linear Models: The Binomial Logistic Regression
+
+### Expanding the Linear Model to solve for the categorization problem
+
+#### Linear Model: Assumptions revisited
+
+Let us briefly recall the assumptions of the (Multiple) Linear Regression model:
+
++ *Variables are real numbers*: both outcome and predictor variables are members of $R$, the set of real numbers; at least in theory they can take any real value from `-Inf` to `Inf`.
++ *Linearity*: there must be a linear relationship between outcome variable and the predictor variable(s).
++ *Normality*: it is assumed that the residuals (i.e model errors) are normally distributed.
++ *Homoscedasticity*: the variances of error terms (i.e. residuals) are similar across the values of the predictor variables.
++ *No autocorrelation*: the residuals are not autocorrelated.
++ *No influential cases*: no outliers are present.
++ *No Multicollinearity* (in Multiple Regression only): the predictors are not that highly correlated with each other.
+
+What if we observe a set of variables that somehow describe a statistical experiment that can result in any of the two discrete outcomes? For example, we observe a description of a behavior of a person, quantified in some way, and organized into a set of variables that should be used to predict the sex of that person? Or any other similar problem where the outcome can take only two values, say `0` or `1` (and immediately recall the Binomial Distribution)?
+
+The assumptions of the Linear Model obviously constrain its application in such cases. We ask the following question now: would it be possible to *generalize*, or *expand*, *modify* the Linear Model somehow to be able to encompass the categorization problem? Because it sounds so appealing to be able to have a set of predictors, combine them in a linear fashion, and estimate the coefficients so to be able to predict whether the outcome would turn this way or another?
+
+There is a way to develop such a generalization of the Linear Model. In its simplest form it represents the *Binomial Logistic Regression*. Binomial Logistic Regression is very similar to multiple regression, except that for the outcome variable is now a *categorical variable* (i.e. it is measured on a nominal scale that is a *dichotomy*).
+
+### Enters Binomial Logistic Regression
+
+Let's recall the form of the Linear Model with any number of predictors:
+
+$$Y = \beta_0 + \beta_1X_1 + \beta_2X_2 + ... + \beta_kX_k + \epsilon$$
+
+So we have a linear combination of $k$ predictors $\boldsymbol{X}$ plus the model error term $\epsilon$ on the RHS, and the outcome variable $Y$ on the LHS. 
+
+Now we assume that $Y$ can take only two possible values, call them `0` and `1` for ease of discussion. We want to predict whether $Y$ will happen to be (`1`) or not (`0`) given our observations of a set of predictors $\boldsymbol{X}$. However, in Binary Logistic Regression we do not predict the value of the outcome itself, but rather the *probability* that the outcome will turn out `1` or `0` given the predictors. 
+
+In the simplest possible case, where there is only one predictor $X_1$, this is exactly what we predict in Binary Logistic Regression:
+
+$$P(Y) = p_1 =  \frac{1}{1+e^{-(b_0 + b_1X_1)}}$$
+where $b_0$ and $b_1$ are the same old good linear model coefficients. As we will see, the linear coefficients have a new interpretation in Binary Logistic Regression - a one rather different that the one they receive in the scope of the Linear Model.
+
+With $k$ predictors we have:
+
+$$P(Y) = p_1 = \frac{1}{1+e^{-(b_0 + b_1X_1 + b_2X_2 + ... + b_kX_k)}}$$
+Now the above equations looks like it felt from the clear blue sky to solve the problem. There is a clear motivation for its form, of course: imagine that instead of predicting the state of $Y$ directly we decide to predicts the *odds* of $Y$ turning out `1` instead of `0`:
+
+$$odds = \frac{p_1}{1-p_1}$$
+Now goes the trick: if instead of predicting the odds $p_1/(1-p_1)$ we decide to predict the **log-odds** (also called: *logit*) from a linear combination of predictors
+
+$$log \left( \frac{p_1}{1-p_1} \right) = b_0 + b_1X_1 + b_2X_2 + ... + b_kX_k$$
+it turns out that we can recover the odds by taking the *exponent* of both LHS and RHS:
+
+$$\frac{p_1}{1-p_1} = e^{(b_0 + b_1X_1 + b_2X_2 + ... + b_kX_k)}$$
+and then by simple algebraic rearrangement we find that the probability $p_1$ of the outcome $Y$ turning out `1` is:
+
+$$P(Y) = p_1 = \frac{1}{1+e^{-(b_0 + b_1X_1 + b_2X_2 + ... + b_kX_k)}}$$
+
+Now, imagine we set a following criterion: anytime we estimate $p_1$ to be larger than or equal to $.5$ we predict that $Y=1$, and anytime $p_1 < .5$ we predict that $Y=0$. What we need to do in order to be able to learn how to predict $Y$ in this way is to estimate the coefficients $b_0$, $b_1$, $b_2$, etc like we did in the case of a linear model. The estimation for GLMs is a bit different than we have learned in Session 15. But first let's see how to perform Binary Logistic Regression in R.
+
+Here is the full model derivation:
+
+(1) let's write $l=\beta_0 + \beta_1X_1 + \beta_2X_2 + ... + \beta_kX_k$ for simplicity and use $l$ to replace the whole linear combination in whats follows;
+
+(2) we have $log \left( \frac{p_1}{1-p_1} \right)=l$ then;
+
+(3) taking the exponent of both sides we arive at $\frac{p_1}{1-p_1}=e^l$;
+
+(4) immediately follows that
+
+$\frac{p_1}{1-p_1}=\frac{1}{e^{-l}} \implies p_1=\frac{1-p_1}{e^{-l}} \implies p_1+\frac{p1}{e^{-l}}=\frac{1}{e^{-l}}\implies p_1e^{-l}+p_1=1 \implies p_1(1+e^{-l})=1$
+
+and after rewriting $l$ as a linear combination again we find that the probability $p_1$ of the outcome $Y$ turning out $1$ is:
+
+$$P(Y) = p_1 = \frac{1}{1+e^{-(\beta_0 + \beta_1X_1 + \beta_2X_2 + ... + \beta_kX_k)}}$$
+
+Now, imagine we set a following criterion: anytime we estimate $p_1$ to be larger than or equal to $.5$ we predict that $Y=1$, and anytime $p_1 < .5$ we predict that $Y=0$. What we need to do in order to be able to learn how to predict $Y$ in this way is to estimate the coefficients $b_0$, $b_1$, $b_2$, etc like we did in the case of a linear model. However, minimizing SSE will not work in this case: our predictions will be on a probability scale, while our observations are discrete, $0$ or $1$. We will have to us the Maximum Likelihood Estimation!
+
+### Binomial Logistic Regression in R
+
+We will use the dataset from the UCLA's Institute of Digital Research and Education's website on Statistical Consulting (they also have a [nice exposition](https://stats.idre.ucla.edu/r/dae/logit-regression/) of the Binary Logistic regression):
+
+> A researcher is interested in how variables, such as GRE (Graduate Record Exam scores), GPA (grade point average) and prestige of the undergraduate institution, effect admission into graduate school. The response variable, admit/don’t admit, is a binary variable. Source: [UCLA's Institute of Digital Research and Education](https://stats.idre.ucla.edu/r/dae/logit-regression/)
+
+```{r echo = T, message = F}
+dataSet <- read.csv("https://stats.idre.ucla.edu/stat/data/binary.csv")
+head(dataSet)
+```
+
+Inspect the dataset:
+
+```{r echo = T, message = F}
+dim(dataSet)
+```
+
+Let's see what is in for us:
+
+```{r echo = T, message = F}
+str(dataSet)
+```
+
+```{r echo = T, message = F}
+# - descriptive statistics
+summary(dataSet)
+sapply(dataSet, sd)
+```
+
+So we need a model that predicts `admit` - a dichotomy - from the `gre` and `gpa` scores and the ranking of the educational institution found in `rank`. No wonder that the model can be written as `admit ~ gre + gpa + rank` in R:
+
+```{r echo = T, message = F}
+# - rank to factor
+# - Q: Why does rank go to factor?
+# - A: Dummy coding... Remember?
+dataSet$rank <- factor(dataSet$rank)
+```
+
+Here goes the `glm()` function:
+
+```{r echo = T, message = F}
+# - model:
+mylogit <- glm(admit ~ gre + gpa + rank,
+               data = dataSet,
+               family = "binomial")
+modelsummary <- summary(mylogit)
+print(modelsummary)
+```
+
+A word on interpretation of the results:
+
++ *Call* is again just the model as we have formulated it;
++ *Deviance residuals*: in GLMs we do not use the same type of residuals as we did in Linear Models. There are several types of residuals of which the *deviance residuals* are most widely known and used (which does not mean that the remaining types of residuals in GLMs are not useful, to the contrary!). We will explain the deviance residuals later on.
++ *Coefficients*: as in `lm()` these are the model coefficients. The `z value` stands for the *Wald's test* of whether the coefficient is significantly different from zero (remember that we have used the *t-test* in Linear Regression to test exactly the same hypothesis); the test is obtained by dividing the coefficient by its standard error.
+
+**N.B.** There is a bug in the Wald's Z, look:
+
+> The reason why the Wald statistic should be used cautiously is because, when the regression coefficient is large, the standard error tends to become inflated, resulting in the Wald statistic being underestimated (see Menard, 1995). The inflation of the standard error increases the probability of rejecting a predictor as being significant when in reality it is making a significant
+contribution to the model (i.e. you are more likely to make a Type II error). From: Andy Field, DISCOVERING STATISTICS USING SPSS, Third Edition, Sage.
+
++ *Dispersion parameter for binomial family taken to be 1* - forget about this, takes advanced GLM theory to understand
++ *Null and Residual deviance*: Remember how we have used the mean of the outcome $Y$ as a baseline for the assessment of the Simple Linear Regression model? In the Binary Logistic Regression setting that is not possible because the outcome variable is binary. What is the appropriate *baseline model* for a comparison of the effect of predictors in Binary Logistic Regression then? Well, we can take the probability of $Y$ turning out `1` by just looking at the distribution of the outcome and pretend that there are no predictors at all (we just add the intercept): that would be the *baseline model* for Binary Logistic Regression. The *null deviance* describes the error of the baseline while the *residual deviance* describe the error from the current model. We will learn how to use them to assess the overall effect of the model
++ *AIC*: short for the Akaike Information Criterion
++ *Fisher scoring iterations:* it has to do with model estimation; a technical detail that will not be considered here.
+
+### MLE for Binomial Logistic Regression
+
+Say we have observed the following data: $HHTHTTHHHT$. Assume that we know the parameter $p_H$. We can compute the Likelihood function from the following equation:
+
+$\mathcal{L}(p_H|HHTHTTHHHT)$ exactly as we did before. Now, this is the general form of the Binomial Likelihood (where $Y$ stands for the observed data):
+
+$$\mathcal{L}(p|Y) = p_1^y(1-p_1)^{n-y}$$ 
+where $y$ is the number of successes and $n$ the total number of observations. For each observed data point then we have
+
+$$\mathcal{L}(p|y_i) = p_1^{y_i}(1-p_1)^{\bar{y_i}}$$ 
+
+where ${y_i}$ is the observed value of the outcome, $Y$, and $\bar{y_i}$ is its complement (e.g. $1$ for $0$ and $0$ for $1$). This form just determines which value will be used in the computation of the Likelihood function at each observed data point: it will be either $p_1$ or $1-p_1$. The likelihood function for a given value of $p_1$ for the whole dataset is computed by multiplying the values of $\mathcal{L}(p|y_i)$ across the whole dataset (remember that multiplication in Probability is what conjunction is in Logic and Algebra).
+
+**Q:** But... how do we get to $p_1$, the parameter value that we will use at each data point?
+**A:** We will search the parameter space, of course, $\beta_0, \beta_1, ... \beta_k$ of linear coefficients in our Binary Logistic Model, computing $p_1$ every time, and compute the likelihood function from it! In other words: we will search the parameter space to find the combination of $\beta_0, \beta_1, ... \beta_k$ that produces the *maximum of the likelihood function* similarly as we have searched the space of linear coefficients to find the combination that *minimizes the squared error* in Simple Linear Regression.
+
+So what combination of the linear coefficients is the best one?
+
+**It is the one which gives the Maximum Likelihood.** This approach, known as **Maximum Likelihood Estimation (MLE)**, stands behind *many* important statistical learning models. It presents the corner stone of the **Statistical Estimation Theory**. It is contrasted with the *Least Squares Estimation* that we have earlier used to estimate Simple and Multiple Linear Regression models.
+
+Now, there is a technical problem related to this approach. To obtain the likelihood for the whole dataset one needs to multiply as many very small numbers as there are data points. That can cause computational problems related to the smallest real numbers that can be represented by digital computers. The workaround is to use the *logarithm* of likelihood instead, known as **Log-Likelihood** ($LL$).
+
+Thus, while the Likelihood function for the whole dataset would be
+
+$$\mathcal{L}(p|Y) = \prod_{i=1}^{n}p_1^{y_i}(1-p_1)^{\bar{y_i}}$$ 
+the Log-Likelihood function would be:
+
+$$LL(p|Y) = \sum_{i=1}^{n} y_ilog(p_1)+\bar{y_i}log(1-p_1)$$ 
+
+And finally here is how we solve the Binomial Logistic Regression problem:
+
+- search throught the parameter space spawned by linear coefficients $\beta_0, \beta_1, ... \beta_k$,
+- predict $p_1$ from the model and a particular combination of the parameters,
+- compute the value of the Likelihood function for the whole dataset,
+- find the combination that yields the maximum of the Likelihood function.
+
+Technically, in optimization we would not go exactly for the maximum of the Likelihood function, because we use $LL$ instead of $\mathcal{L}(p|Y)$. The solution is to **minimize the negative $LL$**, sometimes written simply as $NLL$, the Negative Log-Likelihood function.
+
+#### **N.B.** The interpretaion of coefficients in Binomial Logistic Regression
+
+The $\Delta Odds$ (Odds Ratio)
+
+Do not forget that you have transformed your linear combination of model coefficients and predictors into a log-odds space: the logistic regression coefficient $\beta$ associated with a predictor X is the expected change in **log(odds)**.
+
+So, by taking $e^{\beta_i}$, your coefficient now says:
+
+- take the odds **after** a unit change in the predictor $X_i$
+- take the **original odds** (before the unit change in predictor $X_i$)
+- $\Delta Odds$ = (odds after a unit change in the predictor)/(original odds)
+- will change by $e^{\beta_i}$.
+
+Which means that 
+- if $e^{\beta_i}>1$, then predictor $X_i$ increases the odds of outcome vs no outcome, while
+- if $e^{\beta_i}<1$, then predictor $X_i$ decreases the odds of outcome vs no outcome.
+
+So:
+
+```{r echo = TRUE, message = FALSE, warning=FALSE}
+coefficients(mylogit)
+```
+
+are the coefficients on the log-odds scale; the coefficients the odds scale would be:
+
+```{r echo = TRUE, message = FALSE, warning=FALSE}
+exp(coefficients(mylogit))
+```
+
+
+#### Does the model performs better than the baseline?
+
+The model log-likelihood at the optimal parameter values is obtained from `logLik()`:
+
+```{r echo = T, message = F}
+# - The model likelihood is:
+logLik(mylogit)
+# - Note: models w. lower logLike are better
+```
+
+Let's now talk about **AIC**, the Akaike Information Criterion.
+
+```{r echo = T, message = F}
+mylogit$aic
+# - Note: models w. lower AIC are better
+```
+
+The AIC is computed in the following way:
+
+$$AIC = 2k - 2LL$$
+
+where $k$ is the number of parameters estimated: 
+
+```{r echo = T, message = F}
+-2*as.numeric(logLik(mylogit)) + 2*6
+```
+
+Finally, let's explain what the deviance residual is. The (squared) deviance of each data point is equal to `-2` times the logarithm of the difference between its predicted probability and the *complement* of its actual value (`1` for a `0` and a `0` for a `1`). **And why would anyone construct such a measure of model error?**
+
+```{r echo = T, message = F}
+# - model deviance: 
+print(mylogit$deviance)
+```
+
+Interesting enough, $-2LL$ equals the total model deviance...
+
+```{r echo = T, message = F}
+ll <- logLik(mylogit)
+-2*as.numeric(ll) == mylogit$deviance
+```
+
+Check again... The total deviance first:
+
+```{r echo = T, message = F}
+deviances <- residuals(mylogit, 
+                       type = "deviance")
+sum(deviances^2) == mylogit$deviance
+```
+
+*So, the deviances decompose the total model likelihood similarly as residuals in Linear Regression decompose the total model error...*
+
+```{r echo = T, message = F}
+sum(deviances^2) == -2*as.numeric(ll)
+```
+
+Finally, does the model in itself have any effect? Did we gain anything from introducing the predictors? The following difference between the residual and null deviance follows a $\chi^2$-distribution...
+
+In binomial logistic regression, the null model refers to the simplest possible model with no predictor variables. It is often used as a baseline model to compare the performance of more complex models that include predictor variables. The null model assumes that the outcome variable is only influenced by the intercept term.
+
+\[
+\log\left(\frac{{p}}{{1-p}}\right)=\beta_0
+\]
+
+
+```{r echo = T}
+# - Comparison to a so-called Null model (intercept only)
+# - The following is Chi-Square distributed...
+dev <- mylogit$null.deviance - mylogit$deviance
+print(dev)
+```
+
+... with the `dfs` number of degrees of freedom:
+
+```{r echo = T}
+print(paste0("DF Null: ", mylogit$df.null))
+print(paste0("DF Model: ", mylogit$df.residual))
+dfs <- mylogit$df.null - mylogit$df.residual
+print(dfs)
+```
+
+And the, as ever: how extreme the probability of observing this is to check for the Type I Error:
+
+```{r echo = T}
+pchisq(dev, dfs, lower.tail = FALSE)
+```
+
+**Why?** Begin with the fact that the twice the Log-Likelihood Ratio (LLR) test follows a $\chi^2$ distribution with degrees of freedom that equals the difference in the number of parameters between the two models:
+
+\[
+\text{LLR} = 2 \log \left( \frac{{\mathcal{L}_1(\hat{\theta}_1)}}{{\mathcal{L}_0(\hat{\theta}_0)}} \right)\sim\chi^2(d.f.)
+\]
+
+In Binomial Logistic Regression, the LLR takes the following form:
+
+\[
+\text{LLR} = -2 \log\left(\frac{{\mathcal{L}_{\text{null}}}}{{\mathcal{L}_{\text{alternative}}}}\right)
+\]
+
+where \(\mathcal{L}_{\text{null}}\) represents the likelihood of the null model, and \(\mathcal{L}_{\text{alternative}}\) represents the likelihood of the alternative model.
+
+Remembering that we already know that
+
+$$-2log(\mathcal{L}) = deviance$$
+
+we have that 
+
+$$\mathcal{L}={\exp\left(-\frac{{\text{deviance}_{\text{null}}}}{2}\right)}$$
+
+Starting with the original equation:
+
+\[
+\text{LLR} = -2 \ln\left(\frac{{\exp\left(-\frac{{\text{deviance}_{\text{null}}}}{2}\right)}}{{\exp\left(-\frac{{\text{deviance}_{\text{alternative}}}}{2}\right)}}\right)
+\]
+
+We can rewrite it using the property \(\frac{{\exp(a)}}{{\exp(b)}} = \exp(a - b)\) as:
+
+\[
+\text{LLR} = -2 \ln\left(\exp\left(-\frac{{\text{deviance}_{\text{null}}}}{2} - \left(-\frac{{\text{deviance}_{\text{alternative}}}}{2}\right)\right)\right)
+\]
+
+Simplifying inside the exponential function:
+
+\[
+\text{LLR} = -2 \ln\left(\exp\left(\frac{{\text{deviance}_{\text{alternative}} - \text{deviance}_{\text{null}}}}{2}\right)\right)
+\]
+
+Now, using the property \(\ln(\exp(x)) = x\), we can simplify further:
+
+\[
+\text{LLR} = -2 \left(\frac{{\text{deviance}_{\text{alternative}} - \text{deviance}_{\text{null}}}}{2}\right)
+\]
+
+Simplifying the expression:
+
+\[
+\text{LLR} = -(\text{deviance}_{\text{alternative}} - \text{deviance}_{\text{null}})
+\]
+
+and therefore:
+
+\[
+\text{LLR} = \text{deviance}_{\text{null}} - \text{deviance}_{\text{alternative}}
+\]
+
+In summary, the LLR is expressed as the difference between the deviance of the null model and the deviance of the alternative model. This expression provides a way to compare the fit of nested models using the deviance measure.
+
+***
+
+### Further Readings
+
++ [Andy Field, Jeremy Miles & Zoë Field, Discovering Statistics Using R, SAGE Publishing, Chapter 8. Logistic Regression](https://uk.sagepub.com/en-gb/eur/discovering-statistics-using-r/book236067)
+
++ [Peter Oliver Caya](https://medium.com/pete-caya/implementing-binary-logistic-regression-in-r-e3a6f59ae294)
+
++ [Jeff Webb, Chapter 8 Logistic Regression from Course Notes for IS 6489, Statistics and Predictive Analytics](https://bookdown.org/jefftemplewebb/IS-6489/logistic-regression.html)
+
++ [STHDA, Logistic Regression Assumptions and Diagnostics in R](http://www.sthda.com/english/articles/36-classification-methods-essentials/148-logistic-regression-assumptions-and-diagnostics-in-r/)
+
++ [Ben Horvath, Deriving Logistic Regression](https://rpubs.com/benhorvath/logistic_regression)
+
+***
+
+Aleksandar Cvetković
+
+Goran S. Milovanović
+
+DataKolektiv, 2023.
+
+contact: goran.milovanovic@datakolektiv.com
+
+![](_img/DK_Logo_100.png)
+
+***
+License: [GPLv3](http://www.gnu.org/licenses/gpl-3.0.txt)
+This Notebook is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+This Notebook is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+You should have received a copy of the GNU General Public License along with this Notebook. If not, see <http://www.gnu.org/licenses/>.
+
+***
